@@ -29,7 +29,7 @@ import org.xml.sax.helpers.XMLReaderFactory;
 
 import com.github.xutils.poi.Creators;
 import com.github.xutils.poi.ExcelColumn;
-import com.github.xutils.poi.User;
+import com.github.xutils.poi.OfflineWaybill;
 
 public class XlsxReader {
 
@@ -95,7 +95,7 @@ public class XlsxReader {
             this.clazz = clazz;
             this.rows = rows;
             this.headerRowIndex = headerRowIndex;
-
+            
             this.value = new StringBuffer();
             this.nextDataType = xssfDataType.NUMBER;
             this.formatter = new DataFormatter();
@@ -119,7 +119,14 @@ public class XlsxReader {
             }
             // c => cell
             else if ("c".equals(name)) {
-                this.columnName = String.valueOf(attributes.getValue("r").charAt(0));
+                String r = attributes.getValue("r");
+                StringBuffer column = new StringBuffer();
+                for (int c = 0,len = r.length(); c < len; ++c) {
+                    if (Character.isLetter(r.charAt(c))) {
+                        column.append(r.charAt(c));
+                    }
+                }
+                this.columnName = column.toString();
                 // Set up defaults.
                 this.nextDataType = xssfDataType.NUMBER;
                 this.formatIndex = -1;
@@ -137,9 +144,6 @@ public class XlsxReader {
                      * at apache.org, but it's not in the POI 3.5 Beta 5 jars. Scheduled to appear in 3.5 beta 6.
                      */
                     int styleIndex = Integer.parseInt(cellStyleStr);
-                    if(3 == styleIndex){
-                        nextDataType = xssfDataType.DATETIME;
-                    }
                     XSSFCellStyle style = stylesTable.getStyleAt(styleIndex);
                     this.formatIndex = style.getDataFormat();
                     this.formatString = style.getDataFormatString();
@@ -188,13 +192,13 @@ public class XlsxReader {
                         break;
                     case NUMBER:
                         String n = value.toString();
-                        if (this.formatString != null) val = formatter.formatRawCellContents(Double.parseDouble(n), this.formatIndex, this.formatString);
-                        else
+                        if(DateUtil.isADateFormat(this.formatIndex, this.formatString)){
+                            val = DateUtil.getJavaDate(Double.parseDouble(n));
+                        } else if (this.formatString != null) {
+                            val = formatter.formatRawCellContents(Double.parseDouble(n), this.formatIndex, this.formatString);
+                        } else {
                             val = n;
-                        break;
-                    case DATETIME:
-                        String dateStr = value.toString();
-                        val = DateUtil.getJavaDate(Double.parseDouble(dateStr.toString()));
+                        }
                         break;
                     default:
                         val = "(TODO: Unexpected type: " + nextDataType + ")";
@@ -220,6 +224,8 @@ public class XlsxReader {
                                 field.set(currentRow, Float.valueOf(val.toString()));
                             } else if(double.class.equals(field.getType()) || Double.class.equals(field.getType())){
                                 field.set(currentRow, Double.valueOf(val.toString()));
+                            } else if(boolean.class.equals(field.getType()) || Boolean.class.equals(field.getType())){
+                                field.set(currentRow, val);
                             } else if(java.util.Date.class.equals(field.getType())) {
                                 field.set(currentRow, val);
                             } else if(BigDecimal.class.equals(field.getType())){
@@ -247,11 +253,11 @@ public class XlsxReader {
         public void characters(char[] ch, int start, int length) throws SAXException {
             if (vIsOpen) value.append(ch, start, length);
         }
-
+        
     }
 
     public static void main(String[] args) throws Exception {
-        List<User> rows = XlsxReader.fromInputStream(new FileInputStream("D:/test.xlsx"), User.class, 1);
+        List<OfflineWaybill> rows = XlsxReader.fromInputStream(new FileInputStream("D:/test2.xlsx"), OfflineWaybill.class, 2);
         System.out.println(rows);
     }
 }

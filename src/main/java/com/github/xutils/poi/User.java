@@ -60,5 +60,10 @@ public class User {
     public void setBirthday(Date birthday) {
         this.birthday = birthday;
     }
+
+    @Override
+    public String toString() {
+        return "User [age=" + age + ", username=" + username + ", company=" + company + ", address=" + address + ", birthday=" + birthday + "]";
+    }
     
 }
