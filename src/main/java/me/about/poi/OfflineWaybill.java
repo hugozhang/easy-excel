@@ -1,11 +1,11 @@
-package com.github.xutils.poi;
+package me.about.poi;
 
 import java.io.Serializable;
 import java.util.Date;
 import java.util.HashMap;
 import java.util.Map;
 
-import com.github.xutils.poi.ExcelColumn;
+import me.about.poi.ExcelColumn;
 /**
  * offline_waybill - offline_waybill
  * 

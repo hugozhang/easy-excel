@@ -1,4 +1,4 @@
-package com.github.xutils.poi;
+package me.about.poi;
 
 import java.lang.annotation.ElementType;
 import java.lang.annotation.Retention;
@@ -12,5 +12,5 @@ public @interface ExcelColumn {
     String name() default "";
 
     // 宽度
-    int width() default 20;
+    int width() default 30;
 }

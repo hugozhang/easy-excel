@@ -1,4 +1,4 @@
-package com.github.xutils.poi.writer;
+package me.about.poi.writer;
 
 import java.io.FileOutputStream;
 import java.io.OutputStream;
@@ -22,9 +22,9 @@ import org.apache.poi.ss.usermodel.VerticalAlignment;
 import org.apache.poi.ss.usermodel.Workbook;
 import org.apache.poi.xssf.streaming.SXSSFWorkbook;
 
-import com.github.xutils.poi.ExcelColumn;
-import com.github.xutils.poi.ExcelDataFormatter;
-import com.github.xutils.poi.User;
+import me.about.poi.ExcelColumn;
+import me.about.poi.ExcelDataFormatter;
+import me.about.poi.User;
 
 public class XlsxWriter {
 

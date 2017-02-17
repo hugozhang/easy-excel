@@ -1,4 +1,4 @@
-package com.github.xutils.poi.reader;
+package me.about.poi.reader;
 
 import java.io.FileInputStream;
 import java.io.InputStream;
@@ -27,14 +27,14 @@ import org.xml.sax.XMLReader;
 import org.xml.sax.helpers.DefaultHandler;
 import org.xml.sax.helpers.XMLReaderFactory;
 
-import com.github.xutils.poi.Creators;
-import com.github.xutils.poi.ExcelColumn;
-import com.github.xutils.poi.OfflineWaybill;
+import me.about.poi.Creators;
+import me.about.poi.ExcelColumn;
+import me.about.poi.OfflineWaybill;
 
 public class XlsxReader {
 
     enum xssfDataType {
-        BOOL, ERROR, FORMULA, INLINESTR, SSTINDEX, NUMBER,DATE,TIME,DATETIME
+        BOOL, ERROR, FORMULA, INLINESTR, SSTINDEX, NUMBER
     }
 
     public static <T> List<T> fromInputStream(InputStream in, Class<T> clazz, int headerRowIndex) throws Exception {
@@ -228,7 +228,7 @@ public class XlsxReader {
                                 field.set(currentRow, val);
                             } else if(java.util.Date.class.equals(field.getType())) {
                                 field.set(currentRow, val);
-                            } else if(BigDecimal.class.equals(field.getType())){
+                            } else if(BigDecimal.class.equals(field.getType())) {
                                 field.set(currentRow, BigDecimal.valueOf(Double.parseDouble(val.toString())));
                             } else {
                                 field.set(currentRow, val.toString());
