@@ -13,4 +13,9 @@ public @interface ExcelColumn {
 
     // 宽度
     int width() default 30;
+    
+    // 必填
+    boolean required() default false;
+    
+    String format() default "yyyy-MM-dd HH:mm";
 }

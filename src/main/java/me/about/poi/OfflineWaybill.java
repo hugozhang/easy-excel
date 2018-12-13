@@ -385,4 +385,12 @@ public class OfflineWaybill implements Serializable {
         this.driverName = driverName;
     }
 
+    @Override
+    public String toString() {
+        return "OfflineWaybill [customerPhone=" + customerPhone + ", truckCustomerName=" + truckCustomerName + ", planDeliveryTime=" + planDeliveryTime + ", driverPhone="
+                + driverPhone + ", driverName=" + driverName + ", plateNumber=" + plateNumber + ", estimateFreight=" + estimateFreight + ", afterTaxFreight=" + afterTaxFreight
+                + ", taxRateValue=" + taxRateValue + ", customerName=" + customerName + ", province=" + province + ", city=" + city + ", district=" + district + ", street="
+                + street + ", goodsWeight=" + goodsWeight + ", goodsType=" + goodsType + ", goodsVolume=" + goodsVolume + "]";
+    }
+
 }
