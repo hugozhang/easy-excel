@@ -75,9 +75,9 @@ public class CustomzedSlf4jLogFilter extends Slf4jLogFilter {
     }
   
     private String executableSql(StatementProxy statement, String sql) {  
-        if (!super.isStatementExecutableSqlLogEnable()) {
+        /*if (!super.isStatementExecutableSqlLogEnable()) {
             return sql;  
-        }
+        }*/
   
         if (statement.getParametersSize() == 0) {
             return sql;  
