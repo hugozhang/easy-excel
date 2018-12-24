@@ -18,12 +18,12 @@ public class Test {
             }
         }*/
         StringBuilder buffer = new StringBuilder();
-        List<TransferMapping> rows = XlsxReader.fromInputStream(new FileInputStream("E:/甲壳虫运单迁移到爱司机.xlsx"), TransferMapping.class, 1);
+        List<TransferMapping> rows = XlsxReader.fromInputStream(new FileInputStream("E:/专车订单迁移科技汇总.xlsx"), TransferMapping.class, 1);
         for(TransferMapping m : rows) {
             if(m.getProject_id() != null) {
-                buffer.append("UPDATE waybill SET tenant_id = 2,customer_id = "+m.getCustomer_id()+",customer_name = '" +m.getCustomer_name()+"',project_id = "+m.getProject_id()+", area_code = '"+m.getArea_code()+"', customer_manager_id = "+m.getCustomer_manager_id()+" WHERE waybill_no = '"+m.getWaybillNo()+"';");
+                buffer.append("UPDATE waybill SET tenant_id = 11,customer_id = "+m.getCustomer_id()+",customer_name = '" +m.getCustomer_name()+"',project_id = "+m.getProject_id()+", area_code = '"+m.getArea_code()+"', customer_manager_id = "+m.getCustomer_manager_id()+" WHERE waybill_no = '"+m.getWaybillNo()+"';");
             } else {
-                buffer.append("UPDATE waybill SET tenant_id = 2,customer_id = "+m.getCustomer_id()+",customer_name = '" +m.getCustomer_name()+"',area_code = '"+m.getArea_code()+"', customer_manager_id = "+m.getCustomer_manager_id()+" WHERE waybill_no = '"+m.getWaybillNo()+"';");
+                buffer.append("UPDATE waybill SET tenant_id = 11,customer_id = "+m.getCustomer_id()+",customer_name = '" +m.getCustomer_name()+"',area_code = '"+m.getArea_code()+"', customer_manager_id = "+m.getCustomer_manager_id()+" WHERE waybill_no = '"+m.getWaybillNo()+"';");
             }
             buffer.append("\n");
         }
