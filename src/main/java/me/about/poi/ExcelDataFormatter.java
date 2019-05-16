@@ -14,7 +14,7 @@ import java.util.Map;
  * edf.set("locked", map);
  */
 public class ExcelDataFormatter {
-    
+
     private Map<String, Map<String, String>> formatter = new HashMap<String, Map<String, String>>();
 
     public void set(String key, Map<String, String> map) {

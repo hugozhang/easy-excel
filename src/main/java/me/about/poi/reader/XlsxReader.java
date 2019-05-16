@@ -1,22 +1,30 @@
 package me.about.poi.reader;
 
+import static org.apache.poi.xssf.usermodel.XSSFRelation.NS_SPREADSHEETML;
+
 import java.io.FileInputStream;
 import java.io.FileWriter;
+import java.io.IOException;
 import java.io.InputStream;
 import java.lang.reflect.Field;
 import java.math.BigDecimal;
+import java.text.ParseException;
+import java.text.SimpleDateFormat;
 import java.util.ArrayList;
+import java.util.Date;
 import java.util.HashMap;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
 
-import org.apache.commons.lang3.StringUtils;
 import org.apache.commons.lang3.math.NumberUtils;
 import org.apache.poi.openxml4j.opc.OPCPackage;
+import org.apache.poi.poifs.storage.HeaderBlockConstants;
 import org.apache.poi.ss.usermodel.BuiltinFormats;
 import org.apache.poi.ss.usermodel.DataFormatter;
 import org.apache.poi.ss.usermodel.DateUtil;
+import org.apache.poi.util.IOUtils;
+import org.apache.poi.util.LittleEndian;
 import org.apache.poi.xssf.eventusermodel.XSSFReader;
 import org.apache.poi.xssf.model.SharedStringsTable;
 import org.apache.poi.xssf.model.StylesTable;
@@ -34,40 +42,77 @@ import me.about.poi.Creators;
 import me.about.poi.ExcelColumn;
 import me.about.poi.Mapping;
 
+/**
+ * 
+ * @ClassName: XlsxReader
+ * @Description: Content Type: application/vnd.openxmlformats-officedocument.spreadsheetml.sheet.main+xml
+ * @author: Administrator
+ * @date: 2019年4月23日 下午8:02:32
+ *
+ * @Copyright: 2019 www.jumapeisong.com Inc. All rights reserved.
+ */
 public class XlsxReader {
 
     enum CellDataType {
-        BOOL, ERROR, FORMULA, INLINESTR, SSTINDEX, NUMBER,DATE,NULL
+        BOOLEAN, ERROR, FORMULA, INLINE_STRING, SST_STRING, NUMBER, DATE, NULL
     }
 
-    public static <T> List<T> fromInputStream(InputStream in, Class<T> clazz) throws Exception {
-        return fromInputStream(in, clazz, 1);
+    public static void verifyZipHeader(InputStream stream) throws IOException {
+        byte[] data = new byte[8];
+        IOUtils.readFully(stream, data);
+
+        long signature = LittleEndian.getLong(data);
+        if (signature == HeaderBlockConstants._signature) {
+            throw new RuntimeException("不支持老版本Excel，请另存为xlsx类型");
+        }
     }
 
-    public static <T> List<T> fromInputStream(InputStream in, Class<T> clazz, int headerRowIndex) throws Exception {
+    public static <T> List<T> fromInputStream(InputStream in, Integer sheetIndex, int headerRowIndex, Class<T> clazz)
+            throws Exception {
+        verifyZipHeader(in);
         List<T> rows = new ArrayList<T>();
         OPCPackage pkg = OPCPackage.open(in);
         XSSFReader r = new XSSFReader(pkg);
+
         StylesTable stylesTable = r.getStylesTable();
         SharedStringsTable sharedStringsTable = r.getSharedStringsTable();
-        XMLReader parser = fetchSheetParser(stylesTable, sharedStringsTable, rows, clazz, headerRowIndex);
+        XMLReader parser = XMLReaderFactory.createXMLReader();
+        ContentHandler handler = new SheetHandler<T>(stylesTable, sharedStringsTable, sheetIndex, headerRowIndex, rows,
+                clazz);
+        parser.setContentHandler(handler);
+
+        InputStream inputStream = r.getSheet("rId" + (sheetIndex + 1));
+        InputSource sheetSource = new InputSource(inputStream);
+        parser.parse(sheetSource);
+        inputStream.close();
+
+        return rows;
+    }
+
+    public static <T> List<T> fromInputStream(InputStream in, int headerRowIndex, Class<T> clazz) throws Exception {
+        verifyZipHeader(in);
+
+        List<T> rows = new ArrayList<T>();
+        OPCPackage pkg = OPCPackage.open(in);
+        XSSFReader r = new XSSFReader(pkg);
+
+        StylesTable stylesTable = r.getStylesTable();
+        SharedStringsTable sharedStringsTable = r.getSharedStringsTable();
+        XMLReader parser = XMLReaderFactory.createXMLReader();
+
+        int sheetIndex = 0;
         Iterator<InputStream> sheets = r.getSheetsData();
         while (sheets.hasNext()) {
+            sheetIndex++;
+            ContentHandler handler = new SheetHandler<T>(stylesTable, sharedStringsTable, sheetIndex, headerRowIndex,
+                    rows, clazz);
+            parser.setContentHandler(handler);
             InputStream sheet = sheets.next();
             InputSource sheetSource = new InputSource(sheet);
             parser.parse(sheetSource);
             sheet.close();
-            break;
         }
         return rows;
-    }
-
-    public static <T> XMLReader fetchSheetParser(StylesTable stylesTable, SharedStringsTable strings, List<T> rows,
-            Class<T> clazz, int headerRowIndex) throws SAXException {
-        XMLReader parser = XMLReaderFactory.createXMLReader();
-        ContentHandler handler = new SheetHandler<T>(stylesTable, strings, rows, clazz, headerRowIndex);
-        parser.setContentHandler(handler);
-        return parser;
     }
 
     public static class SheetHandler<T> extends DefaultHandler {
@@ -77,16 +122,19 @@ public class XlsxReader {
         /** Table with unique strings */
         private SharedStringsTable sharedStringsTable;
 
-        private int headerRowIndex;//
+        private int sheetIndex;
+        private int headerRowIndex;
         private Class<T> clazz;
         private T currentRow;
         private List<T> rows;
         private String columnName;
         private Map<String, Field> fieldMapping = new HashMap<String, Field>();
         private Map<String, String> titleMapping = new HashMap<String, String>();
-        private int rowNumber;// 行
-        private int cellNumber;//列
+        private int rowNumber;// row
+        private int cellNumber;// column
 
+        // row is empty?
+        private boolean rIsEmpty = true;
         // Set when V start element is seen
         private boolean vIsOpen;
         // Set when cell start element is seen;
@@ -99,10 +147,11 @@ public class XlsxReader {
         // Gathers characters as they are seen.
         private StringBuffer value;
 
-        private SheetHandler(StylesTable stylesTable, SharedStringsTable sharedStringsTable, List<T> rows,
-                Class<T> clazz, int headerRowIndex) {
+        private SheetHandler(StylesTable stylesTable, SharedStringsTable sharedStringsTable, int sheetIndex,
+                int headerRowIndex, List<T> rows, Class<T> clazz) {
             this.stylesTable = stylesTable;
             this.sharedStringsTable = sharedStringsTable;
+            this.sheetIndex = sheetIndex;
             this.clazz = clazz;
             this.rows = rows;
             this.headerRowIndex = headerRowIndex;
@@ -121,16 +170,17 @@ public class XlsxReader {
             }
         }
 
-        public void startElement(String uri, String localName, String name, Attributes attributes) throws SAXException {
+        public void startElement(String uri, String localName, String qName, Attributes attributes)
+                throws SAXException {
 
-            if ("inlineStr".equals(name) || "v".equals(name)) {
+            if (isTextTag(localName)) {
                 vIsOpen = true;
                 // Clear contents cache
                 value.setLength(0);
             }
             // c => cell
-            else if ("c".equals(name)) {
-                cellNumber ++ ;
+            else if ("c".equals(localName)) {
+                cellNumber++;
                 String r = attributes.getValue("r");
                 StringBuffer column = new StringBuffer();
                 for (int c = 0, len = r.length(); c < len; ++c) {
@@ -145,147 +195,193 @@ public class XlsxReader {
                 this.formatString = null;
                 String cellType = attributes.getValue("t");
                 String cellStyleStr = attributes.getValue("s");
-                if ("b".equals(cellType)) nextDataType = CellDataType.BOOL;
+                if ("b".equals(cellType)) nextDataType = CellDataType.BOOLEAN;
                 else if ("e".equals(cellType)) nextDataType = CellDataType.ERROR;
-                else if ("inlineStr".equals(cellType)) nextDataType = CellDataType.INLINESTR;
-                else if ("s".equals(cellType)) nextDataType = CellDataType.SSTINDEX;
+                else if ("inlineStr".equals(cellType)) nextDataType = CellDataType.INLINE_STRING;
+                else if ("s".equals(cellType)) nextDataType = CellDataType.SST_STRING;
                 else if ("str".equals(cellType)) nextDataType = CellDataType.FORMULA;
-                else if (cellStyleStr != null) {
-                    /*
-                     * It's a number, but possibly has a style and/or special format. Nick Burch said to use org.apache.poi.ss.usermodel.BuiltinFormats, and I see javadoc for that
-                     * at apache.org, but it's not in the POI 3.5 Beta 5 jars. Scheduled to appear in 3.5 beta 6.
-                     */
-                    int styleIndex = Integer.parseInt(cellStyleStr);
-                    XSSFCellStyle style = stylesTable.getStyleAt(styleIndex);
-                    this.formatIndex = style.getDataFormat();
-                    this.formatString = style.getDataFormatString();
-                    if (this.formatString == null)
-                        this.formatString = BuiltinFormats.getBuiltinFormat(this.formatIndex);
+                else {
+                    // Number, but almost certainly with a special style or format
+                    XSSFCellStyle style = null;
+                    if (stylesTable != null) {
+                        if (cellStyleStr != null) {
+                            int styleIndex = Integer.parseInt(cellStyleStr);
+                            style = stylesTable.getStyleAt(styleIndex);
+                        } else if (stylesTable.getNumCellStyles() > 0) {
+                            style = stylesTable.getStyleAt(0);
+                        }
+                    }
+                    if (style != null) {
+                        this.formatIndex = style.getDataFormat();
+                        this.formatString = style.getDataFormatString();
+                        if (this.formatString == null)
+                            this.formatString = BuiltinFormats.getBuiltinFormat(this.formatIndex);
+                    }
                 }
-            } else if ("row".equals(name)) {
+            } else if ("row".equals(localName)) {
                 rowNumber++;
                 cellNumber = 0;
+                rIsEmpty = true;
                 if (rowNumber > this.headerRowIndex) {
                     currentRow = Creators.of(this.clazz).get();
                 }
             }
         }
 
-        public void endElement(String uri, String localName, String name) throws SAXException {
+        public void endElement(String uri, String localName, String qName) throws SAXException {
 
-            Object val = null;
+            if (uri != null && !uri.equals(NS_SPREADSHEETML)) {
+                return;
+            }
+
+            String thisStr = null;
             // v => contents of a cell
-            if ("v".equals(name)) {
-
+            if (isTextTag(localName)) {
+                vIsOpen = false;
                 switch (nextDataType) {
-                case BOOL:
+                case BOOLEAN:
                     char first = value.charAt(0);
-                    val = first == '0' ? false : true;
+                    thisStr = first == '0' ? "FALSE" : "TRUE";
                     break;
                 case ERROR:
-                    val = "\"ERROR:" + value.toString() + '"';
+                    thisStr = "ERROR:" + value.toString();
                     break;
                 case FORMULA:
-                    // A formula could result in a string value,
-                    // so always add double-quote characters.
-                    val = value.toString().trim();
+                    String fv = value.toString();
+                    if (this.formatString != null) {
+                        try {
+                            // Try to use the value as a formattable number
+                            double d = Double.parseDouble(fv);
+                            thisStr = formatter.formatRawCellContents(d, this.formatIndex, this.formatString);
+                        } catch (NumberFormatException e) {
+                            // Formula is a String result not a Numeric one
+                            thisStr = fv;
+                        }
+                    } else {
+                        // No formating applied, just do raw value in all cases
+                        thisStr = fv;
+                    }
                     break;
-                case INLINESTR:
-                    // TODO: have seen an example of this, so it's untested.
+                case INLINE_STRING:
+                    // TODO: Can these ever have formatting on them?
                     XSSFRichTextString rtsi = new XSSFRichTextString(value.toString());
-                    val = rtsi.toString().trim();
+                    thisStr = rtsi.toString();
                     break;
-                case SSTINDEX:
-                    String sstIndex = value.toString().trim();
+                case SST_STRING:
+                    String sstIndex = value.toString();
                     try {
                         int idx = Integer.parseInt(sstIndex);
                         XSSFRichTextString rtss = new XSSFRichTextString(sharedStringsTable.getEntryAt(idx));
-                        val = rtss.toString();
+                        thisStr = rtss.toString();
                     } catch (NumberFormatException ex) {
+
                     }
                     break;
                 case NUMBER:
                     String n = value.toString().trim();
                     if (DateUtil.isADateFormat(this.formatIndex, this.formatString)) {
-                        val = DateUtil.getJavaDate(Double.parseDouble(n));
+                        // thisStr = DateUtil.getJavaDate(Double.parseDouble(n));
                     } else if (this.formatString != null) {
-                        val = formatter.formatRawCellContents(Double.parseDouble(n), this.formatIndex,
+                        thisStr = formatter.formatRawCellContents(Double.parseDouble(n), this.formatIndex,
                                 this.formatString);
                     } else {
-                        val = n;
+                        thisStr = n;
                     }
                     break;
                 default:
-                    val = "(TODO: Unexpected type: " + nextDataType + ")";
+                    thisStr = "(TODO: Unexpected type: " + nextDataType + ")";
                     break;
                 }
                 if (rowNumber == this.headerRowIndex) {
-                    titleMapping.put(this.columnName, val == null ? null : String.valueOf(val).trim());
+                    titleMapping.put(this.columnName, thisStr);
                 }
                 // Process the value contents as required.
                 // Do now, as characters() may be called more than once
                 if (rowNumber > this.headerRowIndex) {
                     checkXlsxTitle(fieldMapping, titleMapping);
                     Field field = fieldMapping.get(titleMapping.get(this.columnName));
-                    if (field != null) {
-                        try {
-                            field.setAccessible(true);
-                            if (int.class.equals(field.getType()) || Integer.class.equals(field.getType())) {
-                                checkValueType(field, titleMapping.get(this.columnName), val.toString());
-                                field.set(currentRow, NumberUtils.toInt(val.toString()));
-                            } else if (long.class.equals(field.getType()) || Long.class.equals(field.getType())) {
-                                checkValueType(field, titleMapping.get(this.columnName), val.toString());
-                                field.set(currentRow, NumberUtils.toLong(val.toString()));
-                            } else if (float.class.equals(field.getType()) || Float.class.equals(field.getType())) {
-                                checkValueType(field, titleMapping.get(this.columnName), val.toString());
-                                field.set(currentRow, NumberUtils.toFloat(val.toString()));
-                            } else if (double.class.equals(field.getType()) || Double.class.equals(field.getType())) {
-                                checkValueType(field, titleMapping.get(this.columnName), val.toString());
-                                field.set(currentRow, NumberUtils.toDouble(val.toString()));
-                            } else if (boolean.class.equals(field.getType()) || Boolean.class.equals(field.getType())) {
-                                field.set(currentRow, val);
-                            } else if (java.util.Date.class.equals(field.getType())) {
-                                field.set(currentRow, val);
-                            } else if (BigDecimal.class.equals(field.getType())) {
-                                checkValueType(field, titleMapping.get(this.columnName), val.toString());
-                                field.set(currentRow, BigDecimal.valueOf(Double.parseDouble(val.toString())));
-                            } else {
-                                field.set(currentRow, val.toString().trim());
-                            }
-                        } catch (IllegalArgumentException e) {
-                            e.printStackTrace();
-                            System.out.println("行号:"+rowNumber+",值:"+val);
-                        } catch (IllegalAccessException e) {
-                            e.printStackTrace();
+                    if (field == null) return;
+                    ExcelColumn ann = field.getAnnotation(ExcelColumn.class);
+                    if (ann == null) return;
+                    Class<?> clz = field.getType();
+                    try {
+                        field.setAccessible(true);
+                        if (int.class.equals(clz) || Integer.class.equals(clz)) {
+                            checkValueType(field, titleMapping.get(this.columnName), thisStr);
+                            field.set(currentRow, NumberUtils.toInt(thisStr.equals("") ? null : thisStr));
+                        } else if (long.class.equals(clz) || Long.class.equals(clz)) {
+                            checkValueType(field, titleMapping.get(this.columnName), thisStr);
+                            field.set(currentRow, NumberUtils.toLong(thisStr));
+                        } else if (float.class.equals(clz) || Float.class.equals(clz)) {
+                            checkValueType(field, titleMapping.get(this.columnName), thisStr);
+                            field.set(currentRow, NumberUtils.toFloat(thisStr));
+                        } else if (double.class.equals(clz) || Double.class.equals(clz)) {
+                            checkValueType(field, titleMapping.get(this.columnName), thisStr);
+                            field.set(currentRow, NumberUtils.toDouble(thisStr));
+                        } else if (boolean.class.equals(clz) || Boolean.class.equals(clz)) {
+                            field.set(currentRow, thisStr);
+                        } else if (java.util.Date.class.equals(clz)) {
+                            String format = ann.format() == null ? "yyyy-MM-dd HH:mm:ss" : ann.format();
+                            Date d = new SimpleDateFormat(format).parse(thisStr);
+                            field.set(currentRow, d);
+                        } else if (BigDecimal.class.equals(clz)) {
+                            checkValueType(field, titleMapping.get(this.columnName), thisStr);
+                            field.set(currentRow, BigDecimal.valueOf(Double.parseDouble(thisStr)));
+                        } else {
+                            field.set(currentRow, thisStr);
                         }
+                    } catch (IllegalArgumentException e) {
+                        e.printStackTrace();
+                    } catch (IllegalAccessException e) {
+                        e.printStackTrace();
+                    } catch (ParseException e) {
+                        e.printStackTrace();
                     }
                 }
-            } else if ("row".equals(name)) {
-                if (rowNumber > this.headerRowIndex) {
+            } else if ("row".equals(qName)) {
+                if (rowNumber > this.headerRowIndex && !rIsEmpty) {
                     this.rows.add(currentRow);
                 }
             }
         }
 
+        private boolean isTextTag(String name) {
+            if ("v".equals(name)) {
+                // Easy, normal v text tag
+                // 列有值，行肯定不为空
+                rIsEmpty = false;
+                return true;
+            }
+            if ("inlineStr".equals(name)) {
+                // Easy inline string
+                return true;
+            }
+            /*
+             * if("t".equals(name) && isIsOpen) { // Inline string <is><t>...</t></is> pair return true; }
+             */
+            // It isn't a text tag
+            return false;
+        }
+
         private void checkValueType(Field field, String columnName, String value) {
-            if (!NumberUtils.isCreatable(value)) {
-                throw new RuntimeException("(行："+rowNumber+"，列："+cellNumber+")列名为'" + columnName + "'，值" + value + "，不能转为数值类型");
+            if (!NumberUtils.isCreatable(value) && value != null && !value.equals("")) {
+                throw new RuntimeException("(标签页：" + sheetIndex + "，行：" + rowNumber + "，列：" + cellNumber + ")列名为'"
+                        + columnName + "'，值" + value + "，不能转为数值类型");
             }
         }
 
-
         private void checkXlsxTitle(Map<String, Field> fieldMapping, Map<String, String> titleMapping) {
             if (titleMapping == null || titleMapping.isEmpty()) {
-                throw new RuntimeException("Excel文件标题栏错误，请检查下");
+                throw new RuntimeException("标签页：" + sheetIndex + "，Excel文件标题栏错误，请检查下");
             }
             if (fieldMapping == null || fieldMapping.isEmpty()) {
-                throw new RuntimeException("没有读到需要的数据列，请检查下");
+                throw new RuntimeException("标签页：" + sheetIndex + "，没有读到需要的数据列，请检查下");
             }
             Iterator<Map.Entry<String, Field>> it = fieldMapping.entrySet().iterator();
             while (it.hasNext()) {
                 Map.Entry<String, Field> entry = it.next();
                 if (!titleMapping.containsValue(entry.getKey())) {
-                    throw new RuntimeException("Excel模板列名为'" + entry.getKey() + "'不存在，请检查下");
+                    throw new RuntimeException("标签页：" + sheetIndex + "，列名为'" + entry.getKey() + "'不存在，请检查下");
                 }
             }
         }
@@ -300,52 +396,16 @@ public class XlsxReader {
     }
 
     public static void main(String[] args) throws Exception {
-        List<Mapping> rows = XlsxReader.fromInputStream(new FileInputStream("D:/change.xlsx"), Mapping.class, 1);
+        List<Mapping> rows = XlsxReader.fromInputStream(new FileInputStream("D:/change.xls"), 1, Mapping.class);
         StringBuilder buffer = new StringBuilder();
         for (Mapping mapping : rows) {
-            if(StringUtils.isBlank(mapping.getOld_area_code()) || StringUtils.isBlank(mapping.getNew_area_code())) continue;
-           
-            buffer.append("UPDATE `waybill` SET `area_code` = REPLACE(`area_code`,'" + mapping.getOld_area_code()+ "','" + mapping.getNew_area_code() + "') WHERE `area_code` = '" + mapping.getOld_area_code()+ "' AND tenant_id = 9;\r\n");
-            buffer.append("UPDATE `truck` SET `area_code` = REPLACE(`area_code`,'" + mapping.getOld_area_code() + "','"+ mapping.getNew_area_code() + "') WHERE `area_code` = '" + mapping.getOld_area_code()+ "' AND tenant_id = 9;\r\n");
-            buffer.append("UPDATE `driver` SET `area_code` = REPLACE(`area_code`,'" + mapping.getOld_area_code() + "','"+ mapping.getNew_area_code() + "') WHERE `area_code` = '" + mapping.getOld_area_code()+ "' AND tenant_id = 9;\r\n");
-            buffer.append("UPDATE `customer_info` SET `area_code` = REPLACE(`area_code`,'" + mapping.getOld_area_code()+ "','" + mapping.getNew_area_code() + "') WHERE `area_code` = '" + mapping.getOld_area_code()+ "' AND tenant_id = 9;\r\n");
-            buffer.append("UPDATE `truck_customer` SET `area_code` = REPLACE(`area_code`,'" + mapping.getOld_area_code()+ "','" + mapping.getNew_area_code() + "') WHERE `area_code` = '" + mapping.getOld_area_code()+ "' AND tenant_id = 9;\r\n");
-        
-            //专车迁移
-            /*
-             * if(mapping.getCrm_customer_isdelete() == null ||mapping.getCrm_customer_isdelete().trim().length() == 0 ||mapping.getCrm_cutomer_id() == null
-             * ||mapping.getCrm_cutomer_id().trim().length() == 0 ||mapping.getCrm_isdelete() == null ||mapping.getCrm_isdelete().trim().length() == 0
-             * ||mapping.getTgm_customer_id() == null ||mapping.getTgm_customer_id().trim().length() == 0 ||mapping.getTgm_isdelete() == null
-             * ||mapping.getTgm_isdelete().trim().length() == 0) { continue; }
-             */
+            buffer.append(mapping.getOld_area_code());
         }
         System.out.println(buffer);
 
         FileWriter write = new FileWriter("D:/change.sql", false);
         write.write(buffer.toString());
         write.close();
-        /*
-         * List<Mapping> rows = new ArrayList<Mapping>(); Mapping maping = new Mapping(); maping.setOldAreacode("000303000500"); maping.setNewAreacode("000303000300");
-         * rows.add(maping); StringBuilder buffer = new StringBuilder(); for(Mapping mapping : rows) { buffer.append(
-         * "UPDATE `waybill` SET `tenant_id` = 9,`tenant_code` = '000000004',`area_code` = '"+mapping.getNewAreacode().substring(0, j-1)+"'  WHERE `area_code`= '"
-         * +mapping.getOldAreacode().substring(0, i-1)+"' AND `tenant_id` = 2;"); buffer.append("\r\n"); buffer.append(
-         * "UPDATE `truck` SET `tenant_id` = 9,`tenant_code` = '000000004',`area_code` = '"+mapping.getNewAreacode().substring(0, j-1)+"'  WHERE `area_code`= '"
-         * +mapping.getOldAreacode().substring(0, i-1)+"' AND `tenant_id` = 2;"); buffer.append("\r\n"); buffer.append(
-         * "UPDATE `driver` SET `tenant_id` = 9,`tenant_code` = '000000004',`area_code` = '"+mapping.getNewAreacode().substring(0, j-1)+"'  WHERE `area_code`= '"
-         * +mapping.getOldAreacode().substring(0, i-1)+"' AND `tenant_id` = 2;"); buffer.append("\r\n"); buffer.append(
-         * "UPDATE `customer_info` SET `tenant_id` = 9,`tenant_code` = '000000004',`area_code` = '"+mapping.getNewAreacode().substring(0, j-1)+"'  WHERE `area_code`= '"
-         * +mapping.getOldAreacode().substring(0, i-1)+"' AND `tenant_id` = 2;"); buffer.append("\r\n"); buffer.append(
-         * "UPDATE `truck_customer` SET `tenant_id` = 9,`tenant_code` = '000000004',`area_code` = '"+mapping.getNewAreacode().substring(0, j-1)+"'  WHERE `area_code`= '"
-         * +mapping.getOldAreacode().substring(0, i-1)+"' AND `tenant_id` = 2;"); buffer.append("\r\n"); buffer.append(
-         * "UPDATE `config_param_option` SET `tenant_id` = 9,`tenant_code` = '000000004',`area_code` = '"+mapping.getNewAreacode().substring(0, j-1)+"'  WHERE `area_code`= '"
-         * +mapping.getOldAreacode().substring(0, i-1)+"' AND `tenant_id` = 2;"); buffer.append("\r\n"); buffer.append(
-         * "UPDATE `important_notice` SET `tenant_id` = 9,`tenant_code` = '000000004',`area_code` = '"+mapping.getNewAreacode().substring(0, j-1)+"'  WHERE `area_code`= '"
-         * +mapping.getOldAreacode().substring(0, i-1)+"' AND `tenant_id` = 2;"); buffer.append("\r\n"); // buffer.append(
-         * "UPDATE `phase_freight_list` SET `tenant_id` = 9,`tenant_code` = '000000004',`area_code` = '"+mapping.getNewAreacode().substring(0, j-1)+"'  WHERE `area_code`= '"
-         * +mapping.getOldAreacode().substring(0, i-1)+"' AND `tenant_id` = 2;"); // buffer.append("\r\n"); buffer.append(
-         * "UPDATE `truck_fleet` SET `tenant_id` = 9,`tenant_code` = '000000004',`area_code` = '"+mapping.getNewAreacode().substring(0, j-1)+"'  WHERE `area_code`= '"
-         * +mapping.getOldAreacode().substring(0, i-1)+"' AND `tenant_id` = 2;"); buffer.append("\r\n"); buffer.append("\r\n"); buffer.append("\r\n"); }
-         */
 
     }
 }

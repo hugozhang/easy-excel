@@ -26,22 +26,31 @@ import me.about.poi.ExcelColumn;
 import me.about.poi.ExcelDataFormatter;
 import me.about.poi.User;
 
+/**
+ * 
+ * @ClassName: XlsxWriter
+ * @Description: Content Type: application/vnd.openxmlformats-officedocument.spreadsheetml.sheet.main+xml
+ * @author: Administrator
+ * @date: 2019年4月23日 下午8:03:11
+ *
+ * @Copyright: 2019 www.jumapeisong.com Inc. All rights reserved.
+ */
 public class XlsxWriter {
 
     public static <T> void toOutputStream(List<T> data, OutputStream out) throws Exception {
         ExcelDataFormatter edf = new ExcelDataFormatter();
-        Workbook workbook  = writeToWorkBook(data, edf);
-        workbook .write(out);
+        Workbook workbook = writeToWorkBook(data, edf);
+        workbook.write(out);
         workbook.close();
     }
 
     public static <T> Workbook writeToWorkBook(List<T> input, ExcelDataFormatter edf) throws Exception {
-        Workbook workbook  = new SXSSFWorkbook();
-        if (input == null || input.isEmpty()) return workbook ;
+        Workbook workbook = new SXSSFWorkbook();
+        if (input == null || input.isEmpty()) return workbook;
         Sheet sheet = workbook.createSheet();
         CreationHelper createHelper = workbook.getCreationHelper();
-        Field[] fields = input.get(0).getClass().getDeclaredFields();//取类字段集合
-        
+        Field[] fields = input.get(0).getClass().getDeclaredFields();// 取类字段集合
+
         CellStyle headStyle = workbook.createCellStyle();
         headStyle.setFillPattern(FillPatternType.BIG_SPOTS);
         headStyle.setFillBackgroundColor(HSSFColor.LIGHT_BLUE.index);
@@ -70,13 +79,12 @@ public class XlsxWriter {
         }
 
         int rowIndex = 1;
-        CellStyle cs = workbook .createCellStyle();
+        CellStyle cs = workbook.createCellStyle();
         cs.setDataFormat(createHelper.createDataFormat().getFormat("yyyy-MM-dd HH:mm:ss"));
         // 行
         for (T t : input) {
             row = sheet.createRow(rowIndex);
             columnIndex = 0;
-            Object o = null;
             // 列
             for (Field field : fields) {
                 field.setAccessible(true);
@@ -85,7 +93,7 @@ public class XlsxWriter {
                     continue;
                 }
                 // 列数据
-                o = field.get(t);//反射取值
+                Object o = field.get(t);// 反射取值
                 if (o == null) {
                     columnIndex++;// *****跳到下一列
                     continue;
@@ -94,11 +102,11 @@ public class XlsxWriter {
                 // 处理数据类型
                 if (o instanceof Date) {
                     cell.setCellStyle(cs);
-                    cell.setCellValue((Date) field.get(t));
+                    cell.setCellValue((Date) o);
                 } else if (o instanceof Double || o instanceof Float) {
-                    cell.setCellValue((Double) field.get(t));
+                    cell.setCellValue((Double) o);
                 } else if (o instanceof Boolean) {
-                    Boolean bool = (Boolean) field.get(t);
+                    Boolean bool = (Boolean) o;
                     if (edf == null) {
                         cell.setCellValue(bool);
                     } else {
@@ -110,7 +118,7 @@ public class XlsxWriter {
                         }
                     }
                 } else if (o instanceof Integer) {
-                    Integer intValue = (Integer) field.get(t);
+                    Integer intValue = (Integer) o;
                     if (edf == null) {
                         cell.setCellValue(intValue);
                     } else {
@@ -126,13 +134,13 @@ public class XlsxWriter {
                     cell.setCellStyle(cs);
                     cell.setCellValue(((BigDecimal) o).doubleValue());
                 } else {
-                    cell.setCellValue(field.get(t).toString());
+                    cell.setCellValue(o.toString());
                 }
                 columnIndex++;
             }
             rowIndex++;
         }
-        return workbook ;
+        return workbook;
     }
 
     public static void main(String[] args) throws Exception {
@@ -142,7 +150,7 @@ public class XlsxWriter {
             User u = new User();
             u.setAge(i);
             u.setUsername("A" + i);
-            //u.setCompany("B"+i);
+            // u.setCompany("B"+i);
             u.setAddress("C" + i);
             u.setBirthday(new Date());
             list.add(u);
