@@ -7,9 +7,6 @@ public class TransferMapping {
     @ExcelColumn(name = "customer_id", width = 30)
     private Integer customer_id;
     
-    @ExcelColumn(name = "所属客户", width = 30)
-    private String customer_name;
-    
     @ExcelColumn(name = "area_code", width = 30)
     private String area_code;
     
@@ -60,13 +57,5 @@ public class TransferMapping {
 
     public void setProject_id(Integer project_id) {
         this.project_id = project_id;
-    }
-
-    public String getCustomer_name() {
-        return customer_name;
-    }
-
-    public void setCustomer_name(String customer_name) {
-        this.customer_name = customer_name;
     }
 }

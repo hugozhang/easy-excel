@@ -4,7 +4,6 @@ import me.about.poi.ExcelColumn;
 
 public class MergeProject {
     
-    @ExcelColumn(name = "customer_id", width = 30)
     private Integer customerId;
     
     @ExcelColumn(name = "project_id", width = 30)

@@ -90,7 +90,6 @@ public class XlsxReader {
     }
 
     public static <T> List<T> fromInputStream(InputStream in, int headerRowIndex, Class<T> clazz) throws Exception {
-        verifyZipHeader(in);
 
         List<T> rows = new ArrayList<T>();
         OPCPackage pkg = OPCPackage.open(in);
@@ -160,10 +159,9 @@ public class XlsxReader {
             this.nextDataType = CellDataType.NUMBER;
             this.formatter = new DataFormatter();
 
-            ExcelColumn ann = null;
             Field[] fields = clazz.getDeclaredFields();
             for (Field field : fields) {
-                ann = field.getAnnotation(ExcelColumn.class);
+                ExcelColumn ann = field.getAnnotation(ExcelColumn.class);
                 if (ann != null) {
                     fieldMapping.put(ann.name(), field);
                 }
@@ -233,7 +231,6 @@ public class XlsxReader {
             if (uri != null && !uri.equals(NS_SPREADSHEETML)) {
                 return;
             }
-
             String thisStr = null;
             // v => contents of a cell
             if (isTextTag(localName)) {
