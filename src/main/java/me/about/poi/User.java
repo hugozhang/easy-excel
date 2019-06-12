@@ -12,7 +12,7 @@ public class User {
     private String company;
     @ExcelColumn(name = "地址", width = 30)
     private String address;
-    @ExcelColumn(name = "生日", width = 30)
+    @ExcelColumn(name = "生日", width = 30,format = "yyyy/MM/dd HH:mm:ss")
     private Date birthday;
     public User(){}
     

@@ -1,5 +1,6 @@
 package me.about.poi.writer;
 
+import java.io.FileInputStream;
 import java.io.FileOutputStream;
 import java.io.OutputStream;
 import java.lang.reflect.Field;
@@ -25,6 +26,7 @@ import org.apache.poi.xssf.streaming.SXSSFWorkbook;
 import me.about.poi.ExcelColumn;
 import me.about.poi.ExcelDataFormatter;
 import me.about.poi.User;
+import me.about.poi.reader.XlsxReader;
 
 /**
  * 
@@ -146,7 +148,7 @@ public class XlsxWriter {
     public static void main(String[] args) throws Exception {
         List<User> list = new ArrayList<User>();
 
-        for (int i = 0; i < 100000; i++) {
+        for (int i = 0; i < 1000; i++) {
             User u = new User();
             u.setAge(i);
             u.setUsername("A" + i);
@@ -163,6 +165,13 @@ public class XlsxWriter {
         System.out.println(e);
         System.out.println("耗时:" + (e.getTime() - s.getTime()) / 1000);
         out.close();
+        
+        
+        List<User> users = XlsxReader.fromInputStream(new FileInputStream("D:/test.xlsx"), 1, User.class);
+        for(User u : users) {
+            System.out.println(u);
+        }
+
     }
 
 }

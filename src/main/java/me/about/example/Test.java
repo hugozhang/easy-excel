@@ -13,7 +13,7 @@ public class Test {
     public static void DepartmentOldNew() throws Exception {
 
         StringBuilder buffer = new StringBuilder();
-        List<Certification> rows = XlsxReader.fromInputStream(new FileInputStream("E:/vendor (18).xlsx"),1,
+        List<Certification> rows = XlsxReader.fromInputStream(new FileInputStream("E:/vendor (19).xlsx"),1,
                 Certification.class);
         for (Certification m : rows) {
             if(m.getResult()!=null && m.getResult().contains("认证不通过")) continue;
@@ -28,7 +28,7 @@ public class Test {
             buffer.append("\n");
         }
         System.out.println(buffer);
-        FileWriter write = new FileWriter("E:/vendor (18).sql", false);
+        FileWriter write = new FileWriter("E:/vendor (19).sql", false);
         write.write(buffer.toString());
         write.close();
     }

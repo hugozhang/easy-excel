@@ -77,8 +77,7 @@ public class XlsxReader {
         StylesTable stylesTable = r.getStylesTable();
         SharedStringsTable sharedStringsTable = r.getSharedStringsTable();
         XMLReader parser = XMLReaderFactory.createXMLReader();
-        ContentHandler handler = new SheetHandler<T>(stylesTable, sharedStringsTable, sheetIndex, headerRowIndex, rows,
-                clazz);
+        ContentHandler handler = new SheetHandler<T>(stylesTable, sharedStringsTable, sheetIndex, headerRowIndex, rows,clazz);
         parser.setContentHandler(handler);
 
         InputStream inputStream = r.getSheet("rId" + (sheetIndex + 1));
@@ -227,7 +226,7 @@ public class XlsxReader {
         }
 
         public void endElement(String uri, String localName, String qName) throws SAXException {
-
+            
             if (uri != null && !uri.equals(NS_SPREADSHEETML)) {
                 return;
             }
@@ -289,6 +288,7 @@ public class XlsxReader {
                     thisStr = "(TODO: Unexpected type: " + nextDataType + ")";
                     break;
                 }
+                
                 if (rowNumber == this.headerRowIndex) {
                     titleMapping.put(this.columnName, thisStr);
                 }
@@ -318,9 +318,13 @@ public class XlsxReader {
                         } else if (boolean.class.equals(clz) || Boolean.class.equals(clz)) {
                             field.set(currentRow, thisStr);
                         } else if (java.util.Date.class.equals(clz)) {
-                            String format = ann.format() == null ? "yyyy-MM-dd HH:mm:ss" : ann.format();
-                            Date d = new SimpleDateFormat(format).parse(thisStr);
-                            field.set(currentRow, d);
+                            if (thisStr == null) {
+                                System.out.println(columnName);
+                            } else {
+                                String format = ann.format() == null ? "yyyy-MM-dd HH:mm:ss" : ann.format();
+                                Date d = new SimpleDateFormat(format).parse(thisStr);
+                                field.set(currentRow, d);
+                            }
                         } else if (BigDecimal.class.equals(clz)) {
                             checkValueType(field, titleMapping.get(this.columnName), thisStr);
                             field.set(currentRow, BigDecimal.valueOf(Double.parseDouble(thisStr)));
@@ -343,7 +347,7 @@ public class XlsxReader {
         }
 
         private boolean isTextTag(String name) {
-            if ("v".equals(name)) {
+            if ("v".equals(name) || "t".equals(name)) {
                 // Easy, normal v text tag
                 // 列有值，行肯定不为空
                 rIsEmpty = false;
