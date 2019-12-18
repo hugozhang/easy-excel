@@ -32,10 +32,6 @@ import me.about.poi.reader.XlsxReader;
  * 
  * @ClassName: XlsxWriter
  * @Description: Content Type: application/vnd.openxmlformats-officedocument.spreadsheetml.sheet.main+xml
- * @author: Administrator
- * @date: 2019年4月23日 下午8:03:11
- *
- * @Copyright: 2019 www.jumapeisong.com Inc. All rights reserved.
  */
 public class XlsxWriter {
 
@@ -64,7 +60,7 @@ public class XlsxWriter {
         headStyle.setFont(font);
 
         Row row = sheet.createRow(0);
-        Cell cell = null;
+        Cell cell;
         int columnIndex = 0;
         ExcelColumn ann = null;
         for (Field field : fields) {
@@ -82,7 +78,7 @@ public class XlsxWriter {
 
         int rowIndex = 1;
         CellStyle cs = workbook.createCellStyle();
-        cs.setDataFormat(createHelper.createDataFormat().getFormat("yyyy-MM-dd HH:mm:ss"));
+        cs.setDataFormat(createHelper.createDataFormat().getFormat(ann == null ? "yyyy-MM-dd HH:mm:ss" : ann.format()));
         // 行
         for (T t : input) {
             row = sheet.createRow(rowIndex);
@@ -146,20 +142,20 @@ public class XlsxWriter {
     }
 
     public static void main(String[] args) throws Exception {
-        List<User> list = new ArrayList<User>();
+        List<User> list = new ArrayList();
 
         for (int i = 0; i < 1000; i++) {
             User u = new User();
             u.setAge(i);
             u.setUsername("A" + i);
-            // u.setCompany("B"+i);
+            u.setCompany("B"+i);
             u.setAddress("C" + i);
             u.setBirthday(new Date());
             list.add(u);
         }
         Date s = new Date();
         System.out.println(s);
-        FileOutputStream out = new FileOutputStream("D:/test.xlsx");
+        FileOutputStream out = new FileOutputStream("test.xlsx");
         XlsxWriter.toOutputStream(list, out);
         Date e = new Date();
         System.out.println(e);
@@ -167,7 +163,7 @@ public class XlsxWriter {
         out.close();
         
         
-        List<User> users = XlsxReader.fromInputStream(new FileInputStream("D:/test.xlsx"), 1, User.class);
+        List<User> users = XlsxReader.fromInputStream(new FileInputStream("test.xlsx"), 1, User.class);
         for(User u : users) {
             System.out.println(u);
         }

@@ -46,15 +46,11 @@ import me.about.poi.Mapping;
  * 
  * @ClassName: XlsxReader
  * @Description: Content Type: application/vnd.openxmlformats-officedocument.spreadsheetml.sheet.main+xml
- * @author: Administrator
- * @date: 2019年4月23日 下午8:02:32
- *
- * @Copyright: 2019 www.jumapeisong.com Inc. All rights reserved.
  */
 public class XlsxReader {
 
     enum CellDataType {
-        BOOLEAN, ERROR, FORMULA, INLINE_STRING, SST_STRING, NUMBER, DATE, NULL
+        BOOLEAN, ERROR, FORMULA, INLINE_STRING, SST_STRING, NUMBER
     }
 
     public static void verifyZipHeader(InputStream stream) throws IOException {
@@ -70,14 +66,14 @@ public class XlsxReader {
     public static <T> List<T> fromInputStream(InputStream in, Integer sheetIndex, int headerRowIndex, Class<T> clazz)
             throws Exception {
         verifyZipHeader(in);
-        List<T> rows = new ArrayList<T>();
+        List<T> rows = new ArrayList();
         OPCPackage pkg = OPCPackage.open(in);
         XSSFReader r = new XSSFReader(pkg);
 
         StylesTable stylesTable = r.getStylesTable();
         SharedStringsTable sharedStringsTable = r.getSharedStringsTable();
         XMLReader parser = XMLReaderFactory.createXMLReader();
-        ContentHandler handler = new SheetHandler<T>(stylesTable, sharedStringsTable, sheetIndex, headerRowIndex, rows,clazz);
+        ContentHandler handler = new SheetHandler(stylesTable, sharedStringsTable, sheetIndex, headerRowIndex, rows,clazz);
         parser.setContentHandler(handler);
 
         InputStream inputStream = r.getSheet("rId" + (sheetIndex + 1));
@@ -90,7 +86,7 @@ public class XlsxReader {
 
     public static <T> List<T> fromInputStream(InputStream in, int headerRowIndex, Class<T> clazz) throws Exception {
 
-        List<T> rows = new ArrayList<T>();
+        List<T> rows = new ArrayList();
         OPCPackage pkg = OPCPackage.open(in);
         XSSFReader r = new XSSFReader(pkg);
 
@@ -102,7 +98,7 @@ public class XlsxReader {
         Iterator<InputStream> sheets = r.getSheetsData();
         while (sheets.hasNext()) {
             sheetIndex++;
-            ContentHandler handler = new SheetHandler<T>(stylesTable, sharedStringsTable, sheetIndex, headerRowIndex,
+            ContentHandler handler = new SheetHandler(stylesTable, sharedStringsTable, sheetIndex, headerRowIndex,
                     rows, clazz);
             parser.setContentHandler(handler);
             InputStream sheet = sheets.next();
@@ -167,8 +163,8 @@ public class XlsxReader {
             }
         }
 
-        public void startElement(String uri, String localName, String qName, Attributes attributes)
-                throws SAXException {
+        @Override
+        public void startElement(String uri, String localName, String qName, Attributes attributes) {
 
             if (isTextTag(localName)) {
                 vIsOpen = true;
@@ -225,8 +221,9 @@ public class XlsxReader {
             }
         }
 
-        public void endElement(String uri, String localName, String qName) throws SAXException {
-            
+        @Override
+        public void endElement(String uri, String localName, String qName) {
+
             if (uri != null && !uri.equals(NS_SPREADSHEETML)) {
                 return;
             }
@@ -269,14 +266,14 @@ public class XlsxReader {
                         int idx = Integer.parseInt(sstIndex);
                         XSSFRichTextString rtss = new XSSFRichTextString(sharedStringsTable.getEntryAt(idx));
                         thisStr = rtss.toString();
-                    } catch (NumberFormatException ex) {
-
+                    } catch (NumberFormatException e) {
+                        e.printStackTrace();
                     }
                     break;
                 case NUMBER:
                     String n = value.toString().trim();
                     if (DateUtil.isADateFormat(this.formatIndex, this.formatString)) {
-                        // thisStr = DateUtil.getJavaDate(Double.parseDouble(n));
+                        thisStr = n;
                     } else if (this.formatString != null) {
                         thisStr = formatter.formatRawCellContents(Double.parseDouble(n), this.formatIndex,
                                 this.formatString);
@@ -304,38 +301,30 @@ public class XlsxReader {
                     try {
                         field.setAccessible(true);
                         if (int.class.equals(clz) || Integer.class.equals(clz)) {
-                            checkValueType(field, titleMapping.get(this.columnName), thisStr);
+                            checkValueType(titleMapping.get(this.columnName), thisStr);
                             field.set(currentRow, NumberUtils.toInt(thisStr.equals("") ? null : thisStr));
                         } else if (long.class.equals(clz) || Long.class.equals(clz)) {
-                            checkValueType(field, titleMapping.get(this.columnName), thisStr);
+                            checkValueType(titleMapping.get(this.columnName), thisStr);
                             field.set(currentRow, NumberUtils.toLong(thisStr));
                         } else if (float.class.equals(clz) || Float.class.equals(clz)) {
-                            checkValueType(field, titleMapping.get(this.columnName), thisStr);
+                            checkValueType(titleMapping.get(this.columnName), thisStr);
                             field.set(currentRow, NumberUtils.toFloat(thisStr));
                         } else if (double.class.equals(clz) || Double.class.equals(clz)) {
-                            checkValueType(field, titleMapping.get(this.columnName), thisStr);
+                            checkValueType(titleMapping.get(this.columnName), thisStr);
                             field.set(currentRow, NumberUtils.toDouble(thisStr));
                         } else if (boolean.class.equals(clz) || Boolean.class.equals(clz)) {
                             field.set(currentRow, thisStr);
                         } else if (java.util.Date.class.equals(clz)) {
-                            if (thisStr == null) {
-                                System.out.println(columnName);
-                            } else {
-                                String format = ann.format() == null ? "yyyy-MM-dd HH:mm:ss" : ann.format();
-                                Date d = new SimpleDateFormat(format).parse(thisStr);
-                                field.set(currentRow, d);
-                            }
+                            if (thisStr == null) return;
+                            Date javaDate = DateUtil.getJavaDate(Double.parseDouble(thisStr));
+                            field.set(currentRow, javaDate);
                         } else if (BigDecimal.class.equals(clz)) {
-                            checkValueType(field, titleMapping.get(this.columnName), thisStr);
+                            checkValueType(titleMapping.get(this.columnName), thisStr);
                             field.set(currentRow, BigDecimal.valueOf(Double.parseDouble(thisStr)));
                         } else {
                             field.set(currentRow, thisStr);
                         }
-                    } catch (IllegalArgumentException e) {
-                        e.printStackTrace();
-                    } catch (IllegalAccessException e) {
-                        e.printStackTrace();
-                    } catch (ParseException e) {
+                    } catch (IllegalArgumentException | IllegalAccessException e) {
                         e.printStackTrace();
                     }
                 }
@@ -364,7 +353,7 @@ public class XlsxReader {
             return false;
         }
 
-        private void checkValueType(Field field, String columnName, String value) {
+        private void checkValueType(String columnName, String value) {
             if (!NumberUtils.isCreatable(value) && value != null && !value.equals("")) {
                 throw new RuntimeException("(标签页：" + sheetIndex + "，行：" + rowNumber + "，列：" + cellNumber + ")列名为'"
                         + columnName + "'，值" + value + "，不能转为数值类型");
