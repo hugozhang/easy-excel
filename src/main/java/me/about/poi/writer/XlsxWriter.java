@@ -37,56 +37,57 @@ public class XlsxWriter {
 
     public static <T> void toOutputStream(List<T> data, OutputStream out) throws Exception {
         ExcelDataFormatter edf = new ExcelDataFormatter();
-        Workbook workbook = writeToWorkBook(data, edf);
-        workbook.write(out);
-        workbook.close();
+        try(Workbook workbook = writeToWorkBook(data, edf)) {
+            workbook.write(out);
+        }
     }
 
     public static <T> Workbook writeToWorkBook(List<T> input, ExcelDataFormatter edf) throws Exception {
-        Workbook workbook = new SXSSFWorkbook();
+        SXSSFWorkbook workbook = new SXSSFWorkbook();
+//        workbook.setCompressTempFiles(true);
         if (input == null || input.isEmpty()) return workbook;
         Sheet sheet = workbook.createSheet();
-        CreationHelper createHelper = workbook.getCreationHelper();
-        Field[] fields = input.get(0).getClass().getDeclaredFields();// 取类字段集合
 
+        //head style 部分
         CellStyle headStyle = workbook.createCellStyle();
         headStyle.setFillPattern(FillPatternType.BIG_SPOTS);
-        headStyle.setFillBackgroundColor(HSSFColor.LIGHT_BLUE.index);
+        headStyle.setFillBackgroundColor(HSSFColor.HSSFColorPredefined.LIGHT_BLUE.getIndex());
         headStyle.setAlignment(HorizontalAlignment.CENTER);
         headStyle.setVerticalAlignment(VerticalAlignment.CENTER);
         Font font = workbook.createFont();
-        font.setColor(HSSFColor.WHITE.index);
+        font.setColor(HSSFColor.HSSFColorPredefined.WHITE.getIndex());
         font.setBold(true);
         headStyle.setFont(font);
 
+        //head 部分
+        CreationHelper createHelper = workbook.getCreationHelper();
+        Field[] fields = input.get(0).getClass().getDeclaredFields();// 取类字段集合
+
         Row row = sheet.createRow(0);
-        Cell cell;
-        int columnIndex = 0;
-        ExcelColumn ann = null;
+        int headColumnIndex = 0;
         for (Field field : fields) {
             field.setAccessible(true);
-            ann = field.getAnnotation(ExcelColumn.class);
+            ExcelColumn ann = field.getAnnotation(ExcelColumn.class);
             if (ann == null) {
                 continue;
             }
-            sheet.setColumnWidth(columnIndex, ann.width() * 256);
-            cell = row.createCell(columnIndex);
+            sheet.setColumnWidth(headColumnIndex, ann.width() * 256);
+            Cell cell = row.createCell(headColumnIndex);
             cell.setCellStyle(headStyle);
             cell.setCellValue(ann.name());
-            columnIndex++;
+            headColumnIndex++;
         }
 
+        //data 部分
         int rowIndex = 1;
-        CellStyle cs = workbook.createCellStyle();
-        cs.setDataFormat(createHelper.createDataFormat().getFormat(ann == null ? "yyyy-MM-dd HH:mm:ss" : ann.format()));
         // 行
         for (T t : input) {
             row = sheet.createRow(rowIndex);
-            columnIndex = 0;
+            int columnIndex = 0;
             // 列
             for (Field field : fields) {
                 field.setAccessible(true);
-                ann = field.getAnnotation(ExcelColumn.class);
+                ExcelColumn ann = field.getAnnotation(ExcelColumn.class);
                 if (ann == null) {
                     continue;
                 }
@@ -96,12 +97,17 @@ public class XlsxWriter {
                     columnIndex++;// *****跳到下一列
                     continue;
                 }
-                cell = row.createCell(columnIndex);
+                Cell cell = row.createCell(columnIndex);
                 // 处理数据类型
                 if (o instanceof Date) {
+                    CellStyle cs = workbook.createCellStyle();
+                    cs.setDataFormat(createHelper.createDataFormat().getFormat(ann == null ? "yyyy-MM-dd HH:mm:ss" : ann.format()));
                     cell.setCellStyle(cs);
                     cell.setCellValue((Date) o);
                 } else if (o instanceof Double || o instanceof Float) {
+                    CellStyle cs = workbook.createCellStyle();
+                    cs.setDataFormat(createHelper.createDataFormat().getFormat("0.00"));
+                    cell.setCellStyle(cs);
                     cell.setCellValue((Double) o);
                 } else if (o instanceof Boolean) {
                     Boolean bool = (Boolean) o;
@@ -128,6 +134,7 @@ public class XlsxWriter {
                         }
                     }
                 } else if (o instanceof BigDecimal) {
+                    CellStyle cs = workbook.createCellStyle();
                     cs.setDataFormat(createHelper.createDataFormat().getFormat("0.00"));
                     cell.setCellStyle(cs);
                     cell.setCellValue(((BigDecimal) o).doubleValue());
@@ -151,6 +158,7 @@ public class XlsxWriter {
             u.setCompany("B"+i);
             u.setAddress("C" + i);
             u.setBirthday(new Date());
+            u.setSalary(new BigDecimal(23.45));
             list.add(u);
         }
         Date s = new Date();

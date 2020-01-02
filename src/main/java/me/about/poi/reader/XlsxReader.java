@@ -2,14 +2,9 @@ package me.about.poi.reader;
 
 import static org.apache.poi.xssf.usermodel.XSSFRelation.NS_SPREADSHEETML;
 
-import java.io.FileInputStream;
-import java.io.FileWriter;
-import java.io.IOException;
-import java.io.InputStream;
+import java.io.*;
 import java.lang.reflect.Field;
 import java.math.BigDecimal;
-import java.text.ParseException;
-import java.text.SimpleDateFormat;
 import java.util.ArrayList;
 import java.util.Date;
 import java.util.HashMap;
@@ -17,14 +12,12 @@ import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
 
+import lombok.extern.slf4j.Slf4j;
 import org.apache.commons.lang3.math.NumberUtils;
 import org.apache.poi.openxml4j.opc.OPCPackage;
-import org.apache.poi.poifs.storage.HeaderBlockConstants;
 import org.apache.poi.ss.usermodel.BuiltinFormats;
 import org.apache.poi.ss.usermodel.DataFormatter;
 import org.apache.poi.ss.usermodel.DateUtil;
-import org.apache.poi.util.IOUtils;
-import org.apache.poi.util.LittleEndian;
 import org.apache.poi.xssf.eventusermodel.XSSFReader;
 import org.apache.poi.xssf.model.SharedStringsTable;
 import org.apache.poi.xssf.model.StylesTable;
@@ -47,65 +40,36 @@ import me.about.poi.Mapping;
  * @ClassName: XlsxReader
  * @Description: Content Type: application/vnd.openxmlformats-officedocument.spreadsheetml.sheet.main+xml
  */
+@Slf4j
 public class XlsxReader {
 
     enum CellDataType {
         BOOLEAN, ERROR, FORMULA, INLINE_STRING, SST_STRING, NUMBER
     }
 
-    public static void verifyZipHeader(InputStream stream) throws IOException {
-        byte[] data = new byte[8];
-        IOUtils.readFully(stream, data);
-
-        long signature = LittleEndian.getLong(data);
-        if (signature == HeaderBlockConstants._signature) {
-            throw new RuntimeException("不支持老版本Excel，请另存为xlsx类型");
-        }
-    }
-
-    public static <T> List<T> fromInputStream(InputStream in, Integer sheetIndex, int headerRowIndex, Class<T> clazz)
-            throws Exception {
-        verifyZipHeader(in);
-        List<T> rows = new ArrayList();
-        OPCPackage pkg = OPCPackage.open(in);
-        XSSFReader r = new XSSFReader(pkg);
-
-        StylesTable stylesTable = r.getStylesTable();
-        SharedStringsTable sharedStringsTable = r.getSharedStringsTable();
-        XMLReader parser = XMLReaderFactory.createXMLReader();
-        ContentHandler handler = new SheetHandler(stylesTable, sharedStringsTable, sheetIndex, headerRowIndex, rows,clazz);
-        parser.setContentHandler(handler);
-
-        InputStream inputStream = r.getSheet("rId" + (sheetIndex + 1));
-        InputSource sheetSource = new InputSource(inputStream);
-        parser.parse(sheetSource);
-        inputStream.close();
-
-        return rows;
-    }
-
     public static <T> List<T> fromInputStream(InputStream in, int headerRowIndex, Class<T> clazz) throws Exception {
-
         List<T> rows = new ArrayList();
         OPCPackage pkg = OPCPackage.open(in);
-        XSSFReader r = new XSSFReader(pkg);
+        XSSFReader xssfReader = new XSSFReader(pkg);
 
-        StylesTable stylesTable = r.getStylesTable();
-        SharedStringsTable sharedStringsTable = r.getSharedStringsTable();
+        StylesTable stylesTable = xssfReader.getStylesTable();
+        SharedStringsTable sharedStringsTable = xssfReader.getSharedStringsTable();
         XMLReader parser = XMLReaderFactory.createXMLReader();
 
         int sheetIndex = 0;
-        Iterator<InputStream> sheets = r.getSheetsData();
-        while (sheets.hasNext()) {
+        XSSFReader.SheetIterator iterator = (XSSFReader.SheetIterator) xssfReader.getSheetsData();
+        while (iterator.hasNext()) {
             sheetIndex++;
-            ContentHandler handler = new SheetHandler(stylesTable, sharedStringsTable, sheetIndex, headerRowIndex,
-                    rows, clazz);
+            InputStream sheet = iterator.next();
+            //指定sheet
+            //InputStream inputStream = xssfReader.getSheet("rId" + (sheetIndex + 1));
+            ContentHandler handler = new SheetHandler(stylesTable, sharedStringsTable, sheetIndex, headerRowIndex, rows, clazz);
             parser.setContentHandler(handler);
-            InputStream sheet = sheets.next();
             InputSource sheetSource = new InputSource(sheet);
             parser.parse(sheetSource);
             sheet.close();
         }
+        pkg.close();
         return rows;
     }
 
@@ -170,9 +134,8 @@ public class XlsxReader {
                 vIsOpen = true;
                 // Clear contents cache
                 value.setLength(0);
-            }
-            // c => cell
-            else if ("c".equals(localName)) {
+            } else if ("c".equals(localName)) {
+                // c => cell
                 cellNumber++;
                 String r = attributes.getValue("r");
                 StringBuffer column = new StringBuffer();
@@ -247,16 +210,14 @@ public class XlsxReader {
                             double d = Double.parseDouble(fv);
                             thisStr = formatter.formatRawCellContents(d, this.formatIndex, this.formatString);
                         } catch (NumberFormatException e) {
-                            // Formula is a String result not a Numeric one
+                            log.error(e.getMessage(),e);
                             thisStr = fv;
                         }
                     } else {
-                        // No formating applied, just do raw value in all cases
                         thisStr = fv;
                     }
                     break;
                 case INLINE_STRING:
-                    // TODO: Can these ever have formatting on them?
                     XSSFRichTextString rtsi = new XSSFRichTextString(value.toString());
                     thisStr = rtsi.toString();
                     break;
@@ -267,7 +228,7 @@ public class XlsxReader {
                         XSSFRichTextString rtss = new XSSFRichTextString(sharedStringsTable.getEntryAt(idx));
                         thisStr = rtss.toString();
                     } catch (NumberFormatException e) {
-                        e.printStackTrace();
+                        log.error(e.getMessage(),e);
                     }
                     break;
                 case NUMBER:
@@ -292,7 +253,7 @@ public class XlsxReader {
                 // Process the value contents as required.
                 // Do now, as characters() may be called more than once
                 if (rowNumber > this.headerRowIndex) {
-                    checkXlsxTitle(fieldMapping, titleMapping);
+                    checkColumn(fieldMapping, titleMapping);
                     Field field = fieldMapping.get(titleMapping.get(this.columnName));
                     if (field == null) return;
                     ExcelColumn ann = field.getAnnotation(ExcelColumn.class);
@@ -325,7 +286,7 @@ public class XlsxReader {
                             field.set(currentRow, thisStr);
                         }
                     } catch (IllegalArgumentException | IllegalAccessException e) {
-                        e.printStackTrace();
+                        log.error(e.getMessage(),e);
                     }
                 }
             } else if ("row".equals(qName)) {
@@ -360,7 +321,7 @@ public class XlsxReader {
             }
         }
 
-        private void checkXlsxTitle(Map<String, Field> fieldMapping, Map<String, String> titleMapping) {
+        private void checkColumn(Map<String, Field> fieldMapping, Map<String, String> titleMapping) {
             if (titleMapping == null || titleMapping.isEmpty()) {
                 throw new RuntimeException("标签页：" + sheetIndex + "，Excel文件标题栏错误，请检查下");
             }
@@ -379,7 +340,7 @@ public class XlsxReader {
         /**
          * Captures characters only if a suitable element is open. Originally was just "v"; extended for inlineStr also.
          */
-        public void characters(char[] ch, int start, int length) throws SAXException {
+        public void characters(char[] ch, int start, int length) {
             if (vIsOpen) value.append(ch, start, length);
         }
 

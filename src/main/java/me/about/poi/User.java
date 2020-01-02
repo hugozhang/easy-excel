@@ -2,6 +2,7 @@ package me.about.poi;
 
 import lombok.Data;
 
+import java.math.BigDecimal;
 import java.util.Date;
 
 @Data
@@ -15,7 +16,9 @@ public class User {
     private String company;
     @ExcelColumn(name = "地址")
     private String address;
-    @ExcelColumn(name = "生日",format = "yyyy-MM-dd HH:mm:ss")
+    @ExcelColumn(name = "生日")
     private Date birthday;
+    @ExcelColumn(name = "薪水")
+    private BigDecimal salary;
 
 }
