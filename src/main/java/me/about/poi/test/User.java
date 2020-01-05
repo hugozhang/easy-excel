@@ -1,6 +1,7 @@
-package me.about.poi;
+package me.about.poi.test;
 
 import lombok.Data;
+import me.about.poi.ExcelColumn;
 
 import java.math.BigDecimal;
 import java.util.Date;
@@ -10,15 +11,19 @@ public class User {
 
     @ExcelColumn(name = "年龄")
     private int age;
+
     @ExcelColumn(name = "姓名")
     private String username;
+
     @ExcelColumn(name = "公司")
     private String company;
+
     @ExcelColumn(name = "地址")
     private String address;
+
     @ExcelColumn(name = "生日")
     private Date birthday;
+
     @ExcelColumn(name = "薪水")
     private BigDecimal salary;
-
 }

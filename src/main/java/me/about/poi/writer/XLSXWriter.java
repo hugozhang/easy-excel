@@ -1,5 +1,6 @@
 package me.about.poi.writer;
 
+import java.io.File;
 import java.io.FileInputStream;
 import java.io.FileOutputStream;
 import java.io.OutputStream;
@@ -10,6 +11,7 @@ import java.util.Date;
 import java.util.List;
 import java.util.Map;
 
+import me.about.poi.test.User;
 import org.apache.poi.hssf.util.HSSFColor;
 import org.apache.poi.ss.usermodel.Cell;
 import org.apache.poi.ss.usermodel.CellStyle;
@@ -25,24 +27,27 @@ import org.apache.poi.xssf.streaming.SXSSFWorkbook;
 
 import me.about.poi.ExcelColumn;
 import me.about.poi.ExcelDataFormatter;
-import me.about.poi.User;
-import me.about.poi.reader.XlsxReader;
+import me.about.poi.reader.XLSXReader;
 
 /**
  * 
- * @ClassName: XlsxWriter
+ * @ClassName: XLSXWriter
  * @Description: Content Type: application/vnd.openxmlformats-officedocument.spreadsheetml.sheet.main+xml
  */
-public class XlsxWriter {
+public class XLSXWriter {
 
-    public static <T> void toOutputStream(List<T> data, OutputStream out) throws Exception {
+    public static XLSXWriter builder() {
+        return new XLSXWriter();
+    }
+
+    public <T> void toStream(List<T> data, OutputStream out) throws Exception {
         ExcelDataFormatter edf = new ExcelDataFormatter();
         try(Workbook workbook = writeToWorkBook(data, edf)) {
             workbook.write(out);
         }
     }
 
-    public static <T> Workbook writeToWorkBook(List<T> input, ExcelDataFormatter edf) throws Exception {
+    public <T> Workbook writeToWorkBook(List<T> input, ExcelDataFormatter edf) throws Exception {
         SXSSFWorkbook workbook = new SXSSFWorkbook();
 //        workbook.setCompressTempFiles(true);
         if (input == null || input.isEmpty()) return workbook;
@@ -164,17 +169,22 @@ public class XlsxWriter {
         Date s = new Date();
         System.out.println(s);
         FileOutputStream out = new FileOutputStream("test.xlsx");
-        XlsxWriter.toOutputStream(list, out);
+        XLSXWriter.builder().toStream(list, out);
         Date e = new Date();
         System.out.println(e);
         System.out.println("耗时:" + (e.getTime() - s.getTime()) / 1000);
         out.close();
         
         
-        List<User> users = XlsxReader.fromInputStream(new FileInputStream("test.xlsx"), 1, User.class);
-        for(User u : users) {
-            System.out.println(u);
-        }
+//        List<User> users = XLSXReader.fromInputStream(new FileInputStream("test.xlsx"), 1, User.class);
+//        for(User u : users) {
+//            System.out.println(u);
+//        }
+
+        File file = new File("/Users/hugozxh/workspace/easy-excel/test.xlsx");
+        System.out.println(file.exists());
+        List<User> users1 = XLSXReader.builder().open(new FileInputStream("test.xlsx")).parseArray(User.class);
+        System.out.println(users1);
 
     }
 

@@ -1,9 +1,9 @@
-package me.about.http;
+package me.about.okhttp;
 
 import java.io.IOException;
 import java.text.MessageFormat;
 
-import me.about.http.okhttp.OkHttp3CookieHelper;
+import me.about.okhttp.OkHttp3CookieHelper;
 import okhttp3.OkHttpClient;
 import okhttp3.Request;
 import okhttp3.Response;

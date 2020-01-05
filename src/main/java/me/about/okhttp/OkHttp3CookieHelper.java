@@ -1,4 +1,4 @@
-package me.about.http.okhttp;
+package me.about.okhttp;
 
 /*  Cookie Handling Lib for OkHttp3
 *

@@ -1,10 +1,10 @@
-package me.about.string;
+package me.about.utils;
 
 import java.util.Date;
 import java.util.HashMap;
 import java.util.Map;
 
-public class SimpleTempletUtils {
+public class SimpleTemplateUtils {
 
     public static String render(String template, Map<String, Object> context) {
         if(template == null || context.isEmpty()) return template;

@@ -9,7 +9,7 @@ import java.lang.annotation.Target;
 @Target({ ElementType.FIELD, ElementType.TYPE })
 public @interface ExcelColumn {
     // 列名
-    String name() default "";
+    String name();
 
     // 宽度
     int width() default 30;

@@ -1,6 +1,5 @@
 package me.about.poi.reader;
 
-import java.io.FileInputStream;
 import java.io.FileNotFoundException;
 import java.io.InputStream;
 import java.lang.reflect.Field;
@@ -11,6 +10,7 @@ import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
 
+import me.about.poi.CellDataType;
 import org.apache.poi.openxml4j.opc.OPCPackage;
 import org.apache.poi.ss.usermodel.BuiltinFormats;
 import org.apache.poi.ss.usermodel.DataFormatter;
@@ -28,14 +28,9 @@ import org.xml.sax.XMLReader;
 import org.xml.sax.helpers.DefaultHandler;
 import org.xml.sax.helpers.XMLReaderFactory;
 
-import me.about.poi.Creators;
-import me.about.poi.OfflineWaybill;
+import me.about.poi.Creator;
 
-public abstract class XlsxReaderTemplate<T> {
-
-    enum xssfDataType {
-        BOOL, ERROR, FORMULA, INLINESTR, SSTINDEX, NUMBER
-    }
+public abstract class XLSXReaderTemplate<T> {
 
     public List<T> fromInputStream(InputStream in, Class<T> clazz, int headerRowIndex) throws Exception {
         List<T> rows = new ArrayList<T>();
@@ -54,8 +49,8 @@ public abstract class XlsxReaderTemplate<T> {
         return rows;
     }
 
-    private XMLReader fetchSheetParser(StylesTable stylesTable, SharedStringsTable strings, XlsxReaderTemplate<T> xlsxReaderTemplate, List<T> rows, Class<T> clazz,
-            int headerRowIndex) throws SAXException {
+    private XMLReader fetchSheetParser(StylesTable stylesTable, SharedStringsTable strings, XLSXReaderTemplate<T> xlsxReaderTemplate, List<T> rows, Class<T> clazz,
+                                       int headerRowIndex) throws SAXException {
         XMLReader parser = XMLReaderFactory.createXMLReader();
         ContentHandler handler = new SheetHandler<T>(stylesTable, strings, xlsxReaderTemplate, rows, clazz, headerRowIndex);
         parser.setContentHandler(handler);
@@ -71,7 +66,7 @@ public abstract class XlsxReaderTemplate<T> {
         /** Table with unique strings */
         private SharedStringsTable sharedStringsTable;
 
-        private XlsxReaderTemplate<T> xlsxReaderTemplate;
+        private XLSXReaderTemplate<T> xlsxReaderTemplate;
 
         private int headerRowIndex;//
         private Class<T> clazz;
@@ -86,7 +81,7 @@ public abstract class XlsxReaderTemplate<T> {
         private boolean vIsOpen;
         // Set when cell start element is seen;
         // used when cell close element is seen.
-        private xssfDataType nextDataType;
+        private CellDataType nextDataType;
         // Used to format numeric cell values.
         private short formatIndex;
         private String formatString;
@@ -94,8 +89,8 @@ public abstract class XlsxReaderTemplate<T> {
         // Gathers characters as they are seen.
         private StringBuffer value;
 
-        private SheetHandler(StylesTable stylesTable, SharedStringsTable sharedStringsTable, XlsxReaderTemplate<T> xlsxReaderTemplate, List<T> rows, Class<T> clazz,
-                int headerRowIndex) {
+        private SheetHandler(StylesTable stylesTable, SharedStringsTable sharedStringsTable, XLSXReaderTemplate<T> xlsxReaderTemplate, List<T> rows, Class<T> clazz,
+                             int headerRowIndex) {
             this.stylesTable = stylesTable;
             this.sharedStringsTable = sharedStringsTable;
             this.xlsxReaderTemplate = xlsxReaderTemplate;
@@ -105,7 +100,7 @@ public abstract class XlsxReaderTemplate<T> {
             this.headerRowIndex = headerRowIndex;
 
             this.value = new StringBuffer();
-            this.nextDataType = xssfDataType.NUMBER;
+            this.nextDataType = CellDataType.NUMBER;
             this.formatter = new DataFormatter();
 
             Field[] fields = clazz.getDeclaredFields();
@@ -132,16 +127,16 @@ public abstract class XlsxReaderTemplate<T> {
                 }
                 this.columnName = column.toString();
                 // Set up defaults.
-                this.nextDataType = xssfDataType.NUMBER;
+                this.nextDataType = CellDataType.NUMBER;
                 this.formatIndex = -1;
                 this.formatString = null;
                 String cellType = attributes.getValue("t");
                 String cellStyleStr = attributes.getValue("s");
-                if ("b".equals(cellType)) nextDataType = xssfDataType.BOOL;
-                else if ("e".equals(cellType)) nextDataType = xssfDataType.ERROR;
-                else if ("inlineStr".equals(cellType)) nextDataType = xssfDataType.INLINESTR;
-                else if ("s".equals(cellType)) nextDataType = xssfDataType.SSTINDEX;
-                else if ("str".equals(cellType)) nextDataType = xssfDataType.FORMULA;
+                if ("b".equals(cellType)) nextDataType = CellDataType.BOOLEAN;
+                else if ("e".equals(cellType)) nextDataType = CellDataType.ERROR;
+                else if ("inlineStr".equals(cellType)) nextDataType = CellDataType.INLINE_STRING;
+                else if ("s".equals(cellType)) nextDataType = CellDataType.SST_STRING;
+                else if ("str".equals(cellType)) nextDataType = CellDataType.FORMULA;
                 else if (cellStyleStr != null) {
                     /*
                      * It's a number, but possibly has a style and/or special format. Nick Burch said to use org.apache.poi.ss.usermodel.BuiltinFormats, and I see javadoc for that
@@ -156,7 +151,7 @@ public abstract class XlsxReaderTemplate<T> {
             } else if ("row".equals(name)) {
                 index++;
                 if (index > this.headerRowIndex) {
-                    currentRow = Creators.of(this.clazz).get();
+                    currentRow = Creator.of(this.clazz);
                 }
             }
         }
@@ -166,7 +161,7 @@ public abstract class XlsxReaderTemplate<T> {
             // v => contents of a cell
             if ("v".equals(name)) {
                 switch (nextDataType) {
-                case BOOL:
+                case BOOLEAN:
                     char first = value.charAt(0);
                     val = first == '0' ? false : true;
                     break;
@@ -178,12 +173,12 @@ public abstract class XlsxReaderTemplate<T> {
                     // so always add double-quote characters.
                     val = value.toString();
                     break;
-                case INLINESTR:
+                case INLINE_STRING:
                     // TODO: have seen an example of this, so it's untested.
                     XSSFRichTextString rtsi = new XSSFRichTextString(value.toString());
                     val = rtsi.toString();
                     break;
-                case SSTINDEX:
+                case SST_STRING:
                     String sstIndex = value.toString();
                     try {
                         int idx = Integer.parseInt(sstIndex);
@@ -265,17 +260,6 @@ public abstract class XlsxReaderTemplate<T> {
 
         public static void main(String[] args) throws FileNotFoundException, Exception {
             
-            final Map<String, String> map = new HashMap<String, String>();
-            map.put("用车人电话", "customerPhone");
-            
-            List<OfflineWaybill> rows = new XlsxReaderTemplate<OfflineWaybill>() {
-                @Override
-                public Map<String, String> titleToFieldMapping() {
-                    return map;
-                }
-            }.fromInputStream(new FileInputStream("D:/test2.xlsx"), OfflineWaybill.class, 2);
-
-            System.err.println(rows);
         }
     }
 }

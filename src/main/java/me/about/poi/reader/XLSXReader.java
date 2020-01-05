@@ -1,7 +1,5 @@
 package me.about.poi.reader;
 
-import static org.apache.poi.xssf.usermodel.XSSFRelation.NS_SPREADSHEETML;
-
 import java.io.*;
 import java.lang.reflect.Field;
 import java.math.BigDecimal;
@@ -13,6 +11,7 @@ import java.util.List;
 import java.util.Map;
 
 import lombok.extern.slf4j.Slf4j;
+import me.about.poi.CellDataType;
 import org.apache.commons.lang3.math.NumberUtils;
 import org.apache.poi.openxml4j.opc.OPCPackage;
 import org.apache.poi.ss.usermodel.BuiltinFormats;
@@ -26,36 +25,53 @@ import org.apache.poi.xssf.usermodel.XSSFRichTextString;
 import org.xml.sax.Attributes;
 import org.xml.sax.ContentHandler;
 import org.xml.sax.InputSource;
-import org.xml.sax.SAXException;
 import org.xml.sax.XMLReader;
 import org.xml.sax.helpers.DefaultHandler;
 import org.xml.sax.helpers.XMLReaderFactory;
 
-import me.about.poi.Creators;
+import me.about.poi.Creator;
 import me.about.poi.ExcelColumn;
-import me.about.poi.Mapping;
+
+import static org.apache.poi.xssf.usermodel.XSSFRelation.NS_SPREADSHEETML;
 
 /**
  * 
- * @ClassName: XlsxReader
+ * @ClassName: XLSXReader
  * @Description: Content Type: application/vnd.openxmlformats-officedocument.spreadsheetml.sheet.main+xml
  */
 @Slf4j
-public class XlsxReader {
+public class XLSXReader {
 
-    enum CellDataType {
-        BOOLEAN, ERROR, FORMULA, INLINE_STRING, SST_STRING, NUMBER
+    private OPCPackage pkg;
+
+    private XSSFReader xssfReader;
+
+    private StylesTable stylesTable;
+
+    private SharedStringsTable sharedStringsTable;
+
+    private int skipRow = 1;
+
+    public static XLSXReader builder () {
+        return new XLSXReader();
     }
 
-    public static <T> List<T> fromInputStream(InputStream in, int headerRowIndex, Class<T> clazz) throws Exception {
+    public XLSXReader open(InputStream in) throws Exception {
+        this.pkg = OPCPackage.open(in);
+        this.xssfReader = new XSSFReader(pkg);
+        this.stylesTable = xssfReader.getStylesTable();
+        this.sharedStringsTable = xssfReader.getSharedStringsTable();
+        return this;
+    }
+
+    public XLSXReader skipRow(int skipRow) {
+        this.skipRow = skipRow;
+        return this;
+    }
+
+    public <T> List<T> parseArray(Class<T> class1) throws Exception{
         List<T> rows = new ArrayList();
-        OPCPackage pkg = OPCPackage.open(in);
-        XSSFReader xssfReader = new XSSFReader(pkg);
-
-        StylesTable stylesTable = xssfReader.getStylesTable();
-        SharedStringsTable sharedStringsTable = xssfReader.getSharedStringsTable();
         XMLReader parser = XMLReaderFactory.createXMLReader();
-
         int sheetIndex = 0;
         XSSFReader.SheetIterator iterator = (XSSFReader.SheetIterator) xssfReader.getSheetsData();
         while (iterator.hasNext()) {
@@ -63,7 +79,7 @@ public class XlsxReader {
             InputStream sheet = iterator.next();
             //指定sheet
             //InputStream inputStream = xssfReader.getSheet("rId" + (sheetIndex + 1));
-            ContentHandler handler = new SheetHandler(stylesTable, sharedStringsTable, sheetIndex, headerRowIndex, rows, clazz);
+            ContentHandler handler = new SheetHandler(stylesTable, sharedStringsTable, sheetIndex, skipRow, rows, class1);
             parser.setContentHandler(handler);
             InputSource sheetSource = new InputSource(sheet);
             parser.parse(sheetSource);
@@ -72,6 +88,32 @@ public class XlsxReader {
         pkg.close();
         return rows;
     }
+
+//    public static <T> List<T> fromInputStream(InputStream in, int headerRowIndex, Class<T> clazz) throws Exception {
+//        List<T> rows = new ArrayList();
+//        OPCPackage pkg = OPCPackage.open(in);
+//        XSSFReader xssfReader = new XSSFReader(pkg);
+//
+//        StylesTable stylesTable = xssfReader.getStylesTable();
+//        SharedStringsTable sharedStringsTable = xssfReader.getSharedStringsTable();
+//        XMLReader parser = XMLReaderFactory.createXMLReader();
+//
+//        int sheetIndex = 0;
+//        XSSFReader.SheetIterator iterator = (XSSFReader.SheetIterator) xssfReader.getSheetsData();
+//        while (iterator.hasNext()) {
+//            sheetIndex++;
+//            InputStream sheet = iterator.next();
+//            //指定sheet
+//            //InputStream inputStream = xssfReader.getSheet("rId" + (sheetIndex + 1));
+//            ContentHandler handler = new SheetHandler(stylesTable, sharedStringsTable, sheetIndex, headerRowIndex, rows, clazz);
+//            parser.setContentHandler(handler);
+//            InputSource sheetSource = new InputSource(sheet);
+//            parser.parse(sheetSource);
+//            sheet.close();
+//        }
+//        pkg.close();
+//        return rows;
+//    }
 
     public static class SheetHandler<T> extends DefaultHandler {
 
@@ -179,7 +221,7 @@ public class XlsxReader {
                 cellNumber = 0;
                 rIsEmpty = true;
                 if (rowNumber > this.headerRowIndex) {
-                    currentRow = Creators.of(this.clazz).get();
+                    currentRow = Creator.of(this.clazz);
                 }
             }
         }
@@ -347,16 +389,16 @@ public class XlsxReader {
     }
 
     public static void main(String[] args) throws Exception {
-        List<Mapping> rows = XlsxReader.fromInputStream(new FileInputStream("D:/change.xls"), 1, Mapping.class);
-        StringBuilder buffer = new StringBuilder();
-        for (Mapping mapping : rows) {
-            buffer.append(mapping.getOld_area_code());
-        }
-        System.out.println(buffer);
-
-        FileWriter write = new FileWriter("D:/change.sql", false);
-        write.write(buffer.toString());
-        write.close();
+//        List<Mapping> rows = XLSXReader.fromInputStream(new FileInputStream("D:/change.xls"), 1, Mapping.class);
+//        StringBuilder buffer = new StringBuilder();
+//        for (Mapping mapping : rows) {
+//            buffer.append(mapping.getOld_area_code());
+//        }
+//        System.out.println(buffer);
+//
+//        FileWriter write = new FileWriter("D:/change.sql", false);
+//        write.write(buffer.toString());
+//        write.close();
 
     }
 }

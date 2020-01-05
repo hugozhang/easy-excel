@@ -18,4 +18,8 @@ public class BeanCopier {
         .register()
         .map(source, target);
     }
+
+    public static void main(String[] args) {
+
+    }
 }
