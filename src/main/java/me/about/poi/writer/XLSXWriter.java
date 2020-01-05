@@ -84,6 +84,7 @@ public class XLSXWriter {
         }
 
         //data 部分
+        CellStyle cs = workbook.createCellStyle();
         int rowIndex = 1;
         // 行
         for (T t : input) {
@@ -105,12 +106,10 @@ public class XLSXWriter {
                 Cell cell = row.createCell(columnIndex);
                 // 处理数据类型
                 if (o instanceof Date) {
-                    CellStyle cs = workbook.createCellStyle();
                     cs.setDataFormat(createHelper.createDataFormat().getFormat(ann == null ? "yyyy-MM-dd HH:mm:ss" : ann.format()));
                     cell.setCellStyle(cs);
                     cell.setCellValue((Date) o);
                 } else if (o instanceof Double || o instanceof Float) {
-                    CellStyle cs = workbook.createCellStyle();
                     cs.setDataFormat(createHelper.createDataFormat().getFormat("0.00"));
                     cell.setCellStyle(cs);
                     cell.setCellValue((Double) o);
@@ -139,7 +138,6 @@ public class XLSXWriter {
                         }
                     }
                 } else if (o instanceof BigDecimal) {
-                    CellStyle cs = workbook.createCellStyle();
                     cs.setDataFormat(createHelper.createDataFormat().getFormat("0.00"));
                     cell.setCellStyle(cs);
                     cell.setCellValue(((BigDecimal) o).doubleValue());
@@ -156,7 +154,7 @@ public class XLSXWriter {
     public static void main(String[] args) throws Exception {
         List<User> list = new ArrayList();
 
-        for (int i = 0; i < 1000; i++) {
+        for (int i = 0; i < 100000; i++) {
             User u = new User();
             u.setAge(i);
             u.setUsername("A" + i);
