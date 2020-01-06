@@ -72,7 +72,7 @@ public class OkHttp3CookieHelper {
             List<Cookie> serverCookieList = mServerCookieStore.get(url.host());
 
             if (serverCookieList == null) {
-                serverCookieList = new ArrayList<Cookie>();
+                serverCookieList = new ArrayList();
             }
 
             final List<Cookie> clientCookieStore = mClientCookieStore.get(url.host());
@@ -89,7 +89,7 @@ public class OkHttp3CookieHelper {
             // Why 'new ArrayList<Cookie>'?
             // Since 'unmodifiableCookieList' can not be changed, create a new
             // one
-            mServerCookieStore.put(url.host(), new ArrayList<Cookie>(unmodifiableCookieList));
+            mServerCookieStore.put(url.host(), new ArrayList(unmodifiableCookieList));
 
             // The persistence code should be described here if u want.
         }

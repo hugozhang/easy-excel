@@ -74,7 +74,7 @@ public class OkHttp {
         RequestBody body = RequestBody.create(
                 MediaType.parse("application/json; charset=utf-8"),
                 JSON.toJSONString(o)
-                );
+        );
         this.requestBuilder.post(body);
         return this;
     }
