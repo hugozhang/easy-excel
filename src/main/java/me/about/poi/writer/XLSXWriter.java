@@ -166,7 +166,7 @@ public class XLSXWriter {
         }
         Date s = new Date();
         System.out.println(s);
-        FileOutputStream out = new FileOutputStream("test.xlsx");
+        FileOutputStream out = new FileOutputStream("中文中国中文中国中文中国中文中国中文中国中文中国中文中国中文中国中文中国中文中国中文中国中文中国中文中国中文中国中文中国中文中国中文中国中文中国.xlsx");
         XLSXWriter.builder().toStream(list, out);
         Date e = new Date();
         System.out.println(e);
@@ -174,14 +174,14 @@ public class XLSXWriter {
         out.close();
         
         
-//        List<User> users = XLSXReader.fromInputStream(new FileInputStream("test.xlsx"), 1, User.class);
+//        List<User> users = XLSXReader.fromInputStream(new FileInputStream("中文中国中文中国中文中国中文中国中文中国中文中国中文中国中文中国中文中国中文中国中文中国中文中国中文中国中文中国中文中国中文中国中文中国中文中国.xlsx"), 1, User.class);
 //        for(User u : users) {
 //            System.out.println(u);
 //        }
 
-        File file = new File("/Users/hugozxh/workspace/easy-excel/test.xlsx");
+        File file = new File("/Users/hugozxh/workspace/easy-excel/中文中国中文中国中文中国中文中国中文中国中文中国中文中国中文中国中文中国中文中国中文中国中文中国中文中国中文中国中文中国中文中国中文中国中文中国.xlsx");
         System.out.println(file.exists());
-        List<User> users1 = XLSXReader.builder().open(new FileInputStream("test.xlsx")).parseArray(User.class);
+        List<User> users1 = XLSXReader.builder().open(new FileInputStream("中文中国中文中国中文中国中文中国中文中国中文中国中文中国中文中国中文中国中文中国中文中国中文中国中文中国中文中国中文中国中文中国中文中国中文中国.xlsx")).parseArray(User.class);
         System.out.println(users1);
 
     }

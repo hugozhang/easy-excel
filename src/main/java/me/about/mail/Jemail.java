@@ -6,6 +6,10 @@ import org.springframework.mail.javamail.MimeMessageHelper;
 import org.springframework.util.Assert;
 
 import javax.mail.internet.MimeMessage;
+import javax.mail.internet.MimeUtility;
+import java.io.File;
+import java.util.ArrayList;
+import java.util.List;
 import java.util.Properties;
 
 @Slf4j
@@ -37,6 +41,8 @@ public class Jemail {
 
     private String text;
 
+    private List<File> files = new ArrayList<>();
+
     public Jemail host(String host) {
         this.host = host;
         return this;
@@ -62,6 +68,11 @@ public class Jemail {
         return this;
     }
 
+    public Jemail to(String[] to) {
+        this.to = to;
+        return this;
+    }
+
     public Jemail subject(String subject) {
         this.subject = subject;
         return this;
@@ -71,6 +82,12 @@ public class Jemail {
         this.text = text;
         return this;
     }
+
+    public Jemail file(File file) {
+        this.files.add(file);
+        return this;
+    }
+
 
     public void send() {
 
@@ -103,6 +120,9 @@ public class Jemail {
             messageHelper.setTo(to);
             messageHelper.setSubject(subject);
             messageHelper.setText(text,true);
+            for ( File file : files ) {
+                messageHelper.addAttachment(MimeUtility.encodeWord(file.getName(), "UTF-8", "B"),file);
+            }
             sender.send(mime);
         } catch (Exception e) {
             log.error(e.getMessage(),e);
@@ -115,7 +135,8 @@ public class Jemail {
                 .username("zxh117170@163.com")
                 .password("123qwe")
                 .subject("测试")
-                .text("hello juma")
+                .text("测试测试测试测试测试hello")
+                .file(new File("中文中国中文中国中文中国中文中国中文中国中文中国中文中国中文中国中文中国中文中国中文中国中文中国中文中国中文中国中文中国中文中国中文中国中文中国.xlsx"))
                 .to("381129269@qq.com").send();
 
     }
