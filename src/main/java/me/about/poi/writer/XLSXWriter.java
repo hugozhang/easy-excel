@@ -1,7 +1,5 @@
 package me.about.poi.writer;
 
-import java.io.File;
-import java.io.FileInputStream;
 import java.io.FileOutputStream;
 import java.io.OutputStream;
 import java.lang.reflect.Field;
@@ -27,7 +25,6 @@ import org.apache.poi.xssf.streaming.SXSSFWorkbook;
 
 import me.about.poi.ExcelColumn;
 import me.about.poi.ExcelDataFormatter;
-import me.about.poi.reader.XLSXReader;
 
 /**
  * 
@@ -50,7 +47,7 @@ public class XLSXWriter {
     public <T> Workbook writeToWorkBook(List<T> input, ExcelDataFormatter edf) throws Exception {
         SXSSFWorkbook workbook = new SXSSFWorkbook();
 //        workbook.setCompressTempFiles(true);
-        if (input == null || input.isEmpty()) return workbook;
+//        if (input == null || input.isEmpty()) return workbook;
         Sheet sheet = workbook.createSheet();
 
         //head style 部分
@@ -64,11 +61,15 @@ public class XLSXWriter {
         font.setBold(true);
         headStyle.setFont(font);
 
+        Row row = sheet.createRow(0);
+
         //head 部分
         CreationHelper createHelper = workbook.getCreationHelper();
+
+        if (input == null || input.isEmpty()) return workbook;
+
         Field[] fields = input.get(0).getClass().getDeclaredFields();// 取类字段集合
 
-        Row row = sheet.createRow(0);
         int headColumnIndex = 0;
         for (Field field : fields) {
             field.setAccessible(true);
@@ -162,11 +163,11 @@ public class XLSXWriter {
             u.setAddress("C" + i);
             u.setBirthday(new Date());
             u.setSalary(new BigDecimal(23.45));
-            list.add(u);
+            //list.add(u);
         }
         Date s = new Date();
         System.out.println(s);
-        FileOutputStream out = new FileOutputStream("中文中国中文中国中文中国中文中国中文中国中文中国中文中国中文中国中文中国中文中国中文中国中文中国中文中国中文中国中文中国中文中国中文中国中文中国.xlsx");
+        FileOutputStream out = new FileOutputStream("中文.xlsx");
         XLSXWriter.builder().toStream(list, out);
         Date e = new Date();
         System.out.println(e);
@@ -179,10 +180,10 @@ public class XLSXWriter {
 //            System.out.println(u);
 //        }
 
-        File file = new File("/Users/hugozxh/workspace/easy-excel/中文中国中文中国中文中国中文中国中文中国中文中国中文中国中文中国中文中国中文中国中文中国中文中国中文中国中文中国中文中国中文中国中文中国中文中国.xlsx");
-        System.out.println(file.exists());
-        List<User> users1 = XLSXReader.builder().open(new FileInputStream("中文中国中文中国中文中国中文中国中文中国中文中国中文中国中文中国中文中国中文中国中文中国中文中国中文中国中文中国中文中国中文中国中文中国中文中国.xlsx")).parseArray(User.class);
-        System.out.println(users1);
+//        File file = new File("/Users/hugozxh/workspace/easy-excel/中文中国中文中国中文中国中文中国中文中国中文中国中文中国中文中国中文中国中文中国中文中国中文中国中文中国中文中国中文中国中文中国中文中国中文中国.xlsx");
+//        System.out.println(file.exists());
+//        List<User> users1 = XLSXReader.builder().open(new FileInputStream("中文中国中文中国中文中国中文中国中文中国中文中国中文中国中文中国中文中国中文中国中文中国中文中国中文中国中文中国中文中国中文中国中文中国中文中国.xlsx")).parseArray(User.class);
+//        System.out.println(users1);
 
     }
 

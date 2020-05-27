@@ -9,8 +9,5 @@
         <module name="easy-excel" />
       </profile>
     </annotationProcessing>
-    <bytecodeTargetLevel>
-      <module name="easy-excel" target="1.7" />
-    </bytecodeTargetLevel>
   </component>
 </project>

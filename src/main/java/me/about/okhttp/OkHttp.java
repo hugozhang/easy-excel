@@ -188,9 +188,11 @@ public class OkHttp {
 
 
     public static void main(String[] args) throws IOException {
-        System.out.println(OkHttp.builder().url("http://www.baidu.com").form("q","腾讯").file("asda",new File("pom.xml")).postForm().asString());
+//        System.out.println(OkHttp.builder().url("http://www.baidu.com").form("q","腾讯").file("asda",new File("pom.xml")).postForm().asString());
+//
+//        System.out.println(OkHttp.builder().url("http://www.baidu.com").data(new Object()).postJson().asString());
 
-        System.out.println(OkHttp.builder().url("http://www.baidu.com").data(new Object()).postJson().asString());
+        System.out.println(OkHttp.builder().url("http://www.baidu.com").get().asString());
 
     }
 
